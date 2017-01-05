@@ -76,6 +76,17 @@ static inline void set_page_refcounted(struct page *page)
 extern unsigned long highest_memmap_pfn;
 
 /*
+ * in mm/mmap.c
+ */
+extern void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
+		     struct vm_area_struct *prev, struct rb_node **rb_link,
+		     struct rb_node *rb_parent);
+extern int find_vma_links(struct mm_struct *mm, unsigned long addr,
+			  unsigned long end, struct vm_area_struct **pprev,
+			  struct rb_node ***rb_link,
+			  struct rb_node **rb_parent);
+
+/*
  * in mm/vmscan.c:
  */
 extern int isolate_lru_page(struct page *page);

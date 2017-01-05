@@ -466,9 +466,9 @@ anon_vma_interval_tree_post_update_vma(struct vm_area_struct *vma)
 		anon_vma_interval_tree_insert(avc, &avc->anon_vma->rb_root);
 }
 
-static int find_vma_links(struct mm_struct *mm, unsigned long addr,
-		unsigned long end, struct vm_area_struct **pprev,
-		struct rb_node ***rb_link, struct rb_node **rb_parent)
+int find_vma_links(struct mm_struct *mm, unsigned long addr,
+		   unsigned long end, struct vm_area_struct **pprev,
+		   struct rb_node ***rb_link, struct rb_node **rb_parent)
 {
 	struct rb_node **__rb_link, *__rb_parent, *rb_prev;
 
@@ -580,9 +580,9 @@ __vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 	__vma_link_rb(mm, vma, rb_link, rb_parent);
 }
 
-static void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
-			struct vm_area_struct *prev, struct rb_node **rb_link,
-			struct rb_node *rb_parent)
+void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
+	      struct vm_area_struct *prev, struct rb_node **rb_link,
+	      struct rb_node *rb_parent)
 {
 	struct address_space *mapping = NULL;
 
