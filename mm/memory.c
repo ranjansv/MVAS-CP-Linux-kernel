@@ -1108,6 +1108,82 @@ int copy_page_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	return ret;
 }
 
+static unsigned long zap_one_pte(struct mmu_gather *tlb,
+				 struct vm_area_struct *vma, pte_t *pte,
+				 unsigned long *paddr, int *force_flush,
+				 int *rss, struct zap_details *details)
+{
+	unsigned long addr = *paddr;
+	struct mm_struct *mm = tlb->mm;
+	swp_entry_t entry;
+	pte_t ptent = *pte;
+
+	if (pte_present(ptent)) {
+		struct page *page;
+
+		page = vm_normal_page(vma, addr, ptent);
+		if (unlikely(details) && page) {
+			/*
+			 * unmap_shared_mapping_pages() wants to
+			 * invalidate cache without truncating:
+			 * unmap shared but keep private pages.
+			 */
+			if (details->check_mapping &&
+			    details->check_mapping != page_rmapping(page))
+				return 0;
+		}
+		ptent = ptep_get_and_clear_full(mm, addr, pte,
+						tlb->fullmm);
+		tlb_remove_tlb_entry(tlb, pte, addr);
+		if (unlikely(!page))
+			return 0;
+
+		if (!PageAnon(page)) {
+			if (pte_dirty(ptent)) {
+				/*
+				 * oom_reaper cannot tear down dirty
+				 * pages
+				 */
+				if (unlikely(details && details->ignore_dirty))
+					return 0;
+				*force_flush = 1;
+				set_page_dirty(page);
+			}
+			if (pte_young(ptent) &&
+			    likely(!(vma->vm_flags & VM_SEQ_READ)))
+				mark_page_accessed(page);
+		}
+		rss[mm_counter(page)]--;
+		page_remove_rmap(page, false);
+		if (unlikely(page_mapcount(page) < 0))
+			print_bad_pte(vma, addr, ptent, page);
+		if (unlikely(__tlb_remove_page(tlb, page))) {
+			*force_flush = 1;
+			*paddr += PAGE_SIZE;
+			return 1;
+		}
+		return 0;
+	}
+	/* only check swap_entries if explicitly asked for in details */
+	if (unlikely(details && !details->check_swap_entries))
+		return 0;
+
+	entry = pte_to_swp_entry(ptent);
+	if (!non_swap_entry(entry))
+		rss[MM_SWAPENTS]--;
+	else if (is_migration_entry(entry)) {
+		struct page *page;
+
+		page = migration_entry_to_page(entry);
+		rss[mm_counter(page)]--;
+	}
+	if (unlikely(!free_swap_and_cache(entry)))
+		print_bad_pte(vma, addr, ptent, NULL);
+	pte_clear_not_present_full(mm, addr, pte, tlb->fullmm);
+
+	return 0;
+}
+
 static unsigned long zap_pte_range(struct mmu_gather *tlb,
 				struct vm_area_struct *vma, pmd_t *pmd,
 				unsigned long addr, unsigned long end,
@@ -1119,7 +1195,6 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 	spinlock_t *ptl;
 	pte_t *start_pte;
 	pte_t *pte;
-	swp_entry_t entry;
 
 	tlb_remove_check_page_size_change(tlb, PAGE_SIZE);
 again:
@@ -1128,73 +1203,12 @@ again:
 	pte = start_pte;
 	arch_enter_lazy_mmu_mode();
 	do {
-		pte_t ptent = *pte;
-		if (pte_none(ptent)) {
-			continue;
-		}
-
-		if (pte_present(ptent)) {
-			struct page *page;
-
-			page = vm_normal_page(vma, addr, ptent);
-			if (unlikely(details) && page) {
-				/*
-				 * unmap_shared_mapping_pages() wants to
-				 * invalidate cache without truncating:
-				 * unmap shared but keep private pages.
-				 */
-				if (details->check_mapping &&
-				    details->check_mapping != page_rmapping(page))
-					continue;
-			}
-			ptent = ptep_get_and_clear_full(mm, addr, pte,
-							tlb->fullmm);
-			tlb_remove_tlb_entry(tlb, pte, addr);
-			if (unlikely(!page))
-				continue;
-
-			if (!PageAnon(page)) {
-				if (pte_dirty(ptent)) {
-					/*
-					 * oom_reaper cannot tear down dirty
-					 * pages
-					 */
-					if (unlikely(details && details->ignore_dirty))
-						continue;
-					force_flush = 1;
-					set_page_dirty(page);
-				}
-				if (pte_young(ptent) &&
-				    likely(!(vma->vm_flags & VM_SEQ_READ)))
-					mark_page_accessed(page);
-			}
-			rss[mm_counter(page)]--;
-			page_remove_rmap(page, false);
-			if (unlikely(page_mapcount(page) < 0))
-				print_bad_pte(vma, addr, ptent, page);
-			if (unlikely(__tlb_remove_page(tlb, page))) {
-				force_flush = 1;
-				addr += PAGE_SIZE;
-				break;
-			}
-			continue;
-		}
-		/* only check swap_entries if explicitly asked for in details */
-		if (unlikely(details && !details->check_swap_entries))
+		if (pte_none(*pte))
 			continue;
 
-		entry = pte_to_swp_entry(ptent);
-		if (!non_swap_entry(entry))
-			rss[MM_SWAPENTS]--;
-		else if (is_migration_entry(entry)) {
-			struct page *page;
-
-			page = migration_entry_to_page(entry);
-			rss[mm_counter(page)]--;
-		}
-		if (unlikely(!free_swap_and_cache(entry)))
-			print_bad_pte(vma, addr, ptent, NULL);
-		pte_clear_not_present_full(mm, addr, pte, tlb->fullmm);
+		if (unlikely(zap_one_pte(tlb, vma, pte, &addr, &force_flush,
+					 rss, details)))
+			break;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 
 	add_mm_rss_vec(mm, rss);
@@ -1444,6 +1458,321 @@ int zap_vma_ptes(struct vm_area_struct *vma, unsigned long address,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(zap_vma_ptes);
+
+static inline int
+dup_one_pte(struct mm_struct *dst_mm, struct vm_area_struct *dst_vma,
+	    struct mm_struct *src_mm, struct vm_area_struct *src_vma,
+	    struct mmu_gather *tlb, pte_t *dst_pte, pte_t *src_pte,
+	    unsigned long addr, int *force_flush, int *rss)
+{
+	unsigned long raddr = addr;
+	pte_t pte = *src_pte;
+	struct page *page;
+
+	/*
+	 * If the ptes are already exactly the same, we don't have to do
+	 * anything.
+	 */
+	if (likely(src_pte == dst_pte))
+		return 0;
+
+	/* Remove the old mapping first */
+	if (!pte_none(*dst_pte) &&
+	    unlikely(zap_one_pte(tlb, dst_vma, dst_pte, &raddr, force_flush,
+				 rss, NULL)))
+		return -ENOMEM;
+
+	/* pte contains position in swap or file, so copy. */
+	if (unlikely(!pte_present(pte))) {
+		swp_entry_t entry = pte_to_swp_entry(pte);
+
+		if (likely(!non_swap_entry(entry))) {
+			if (swap_duplicate(entry) < 0)
+				return entry.val;
+
+			/* make sure dst_mm is on swapoff's mmlist. */
+			if (unlikely(list_empty(&dst_mm->mmlist))) {
+				spin_lock(&mmlist_lock);
+				if (list_empty(&dst_mm->mmlist))
+					list_add(&dst_mm->mmlist,
+							&src_mm->mmlist);
+				spin_unlock(&mmlist_lock);
+			}
+			rss[MM_SWAPENTS]++;
+		} else if (is_migration_entry(entry)) {
+			page = migration_entry_to_page(entry);
+
+			rss[mm_counter(page)]++;
+		}
+		goto out_set_pte;
+	}
+
+	pte = pte_mkold(pte);
+
+	page = vm_normal_page(src_vma, addr, pte);
+	if (page) {
+		get_page(page);
+		page_dup_rmap(page, false);
+		rss[mm_counter(page)]++;
+	}
+
+out_set_pte:
+	if (!(dst_vma->vm_flags & VM_WRITE))
+		pte = pte_wrprotect(pte);
+
+	set_pte_at(dst_mm, addr, dst_pte, pte);
+	return 0;
+}
+
+static inline int
+dup_pte_range(struct mm_struct *dst_mm, struct vm_area_struct *dst_vma,
+	      struct mm_struct *src_mm, struct vm_area_struct *src_vma,
+	      struct mmu_gather *tlb, pmd_t *dst_pmd, pmd_t *src_pmd,
+	      unsigned long addr, unsigned long end)
+{
+	pte_t *orig_dst_pte, *orig_src_pte;
+	pte_t *dst_pte, *src_pte;
+	spinlock_t *dst_ptl, *src_ptl;
+	int force_flush = 0;
+	int progress = 0;
+	int rss[NR_MM_COUNTERS];
+	swp_entry_t entry = (swp_entry_t){0};
+
+again:
+	init_rss_vec(rss);
+
+	dst_pte = pte_alloc_map_lock(dst_mm, dst_pmd, addr, &dst_ptl);
+	if (!dst_pte)
+		return -ENOMEM;
+	src_pte = pte_offset_map(src_pmd, addr);
+	src_ptl = pte_lockptr(src_mm, src_pmd);
+	spin_lock_nested(src_ptl, SINGLE_DEPTH_NESTING);
+	orig_dst_pte = dst_pte;
+	orig_src_pte = src_pte;
+
+	arch_enter_lazy_mmu_mode();
+
+	do {
+		/* Make sure that we are not holding the looks too long. */
+		if (progress >= 32) {
+			progress = 0;
+			if (need_resched() || spin_needbreak(src_ptl) ||
+			    spin_needbreak(dst_ptl))
+				break;
+		}
+
+		if (pte_none(*src_pte) && pte_none(*dst_pte)) {
+			progress++;
+			continue;
+		} else if (pte_none(*src_pte)) {
+			unsigned long raddr = addr;
+			int ret;
+
+			ret = zap_one_pte(tlb, dst_vma, dst_pte, &raddr,
+					  &force_flush, rss, NULL);
+			pte_clear(dst_mm, addr, dst_pte);
+
+			progress += 8;
+			if (ret)
+				break;
+
+			continue;
+		}
+
+		entry.val = dup_one_pte(dst_mm, dst_vma, src_mm, src_vma,
+					tlb, dst_pte, src_pte, addr,
+					&force_flush, rss);
+
+		if (entry.val)
+			break;
+		progress += 8;
+	} while (dst_pte++, src_pte++, addr += PAGE_SIZE, addr != end);
+
+	arch_leave_lazy_mmu_mode();
+	spin_unlock(src_ptl);
+	pte_unmap(orig_src_pte);
+	add_mm_rss_vec(dst_mm, rss);
+
+	/* Do the TLB flush before unlocking the destination ptl */
+	if (force_flush)
+		tlb_flush_mmu_tlbonly(tlb);
+	pte_unmap_unlock(orig_dst_pte, dst_ptl);
+
+	/* Sometimes we have to free all the batch memory as well. */
+	if (force_flush) {
+		force_flush = 0;
+		tlb_flush_mmu_free(tlb);
+	}
+
+	cond_resched();
+	if (entry.val) {
+		if (add_swap_count_continuation(entry, GFP_KERNEL) < 0)
+			return -ENOMEM;
+		progress = 0;
+	}
+	if (addr != end)
+		goto again;
+
+	return 0;
+}
+
+static inline int
+dup_pmd_range(struct mm_struct *dst_mm, struct vm_area_struct *dst_vma,
+	      struct mm_struct *src_mm, struct vm_area_struct *src_vma,
+	      struct mmu_gather *tlb, pud_t *dst_pud, pud_t *src_pud,
+	      unsigned long addr, unsigned long end)
+{
+	pmd_t *dst_pmd, *src_pmd;
+	unsigned long next;
+
+	dst_pmd = pmd_alloc(dst_mm, dst_pud, addr);
+	if (!dst_pmd)
+		return -ENOMEM;
+	src_pmd = pmd_offset(src_pud, addr);
+	do {
+		next = pmd_addr_end(addr, end);
+
+		if (pmd_none_or_clear_bad(src_pmd) &&
+		    pmd_none_or_clear_bad(dst_pmd)) {
+			continue;
+		} else if (pmd_none_or_clear_bad(src_pmd)) {
+			/* src unmapped, but dst not --> free dst too */
+			zap_pte_range(tlb, dst_vma, dst_pmd, addr, next, NULL);
+			free_pte_range(tlb, dst_pmd, addr);
+
+			continue;
+		} else if (pmd_trans_huge(*src_pmd) || pmd_devmap(*src_pmd)) {
+			int err;
+
+			VM_BUG_ON(next-addr != HPAGE_PMD_SIZE);
+
+			/*
+			 * We may need to unmap the content of the destination
+			 * page table first. So check this here, because
+			 * inside dup_huge_pmd we cannot do it anymore.
+			 */
+			if (unlikely(!pmd_trans_huge(*dst_pmd) &&
+				     !pmd_devmap(*dst_pmd) &&
+				     !pmd_none_or_clear_bad(dst_pmd))) {
+				zap_pte_range(tlb, dst_vma, dst_pmd, addr, next,
+					      NULL);
+				free_pte_range(tlb, dst_pmd, addr);
+			}
+
+			err = dup_huge_pmd(dst_mm, dst_vma, src_mm, src_vma,
+					   tlb, dst_pmd, src_pmd, addr);
+
+			if (err == -ENOMEM)
+				return -ENOMEM;
+			if (!err)
+				continue;
+			/* explicit fall through */
+
+		}
+
+		if (unlikely(dup_pte_range(dst_mm, dst_vma, src_mm, src_vma,
+					   tlb, dst_pmd, src_pmd, addr, next)))
+			return -ENOMEM;
+	} while (dst_pmd++, src_pmd++, addr = next, addr != end);
+
+	return 0;
+}
+
+static inline int
+dup_pud_range(struct mm_struct *dst_mm, struct vm_area_struct *dst_vma,
+	      struct mm_struct *src_mm, struct vm_area_struct *src_vma,
+	      struct mmu_gather *tlb, pgd_t *dst_pgd, pgd_t *src_pgd,
+	      unsigned long addr, unsigned long end)
+{
+	pud_t *dst_pud, *src_pud;
+	unsigned long next;
+
+	dst_pud = pud_alloc(dst_mm, dst_pgd, addr);
+	if (!dst_pud)
+		return -ENOMEM;
+	src_pud = pud_offset(src_pgd, addr);
+	do {
+		next = pud_addr_end(addr, end);
+		if (pud_none_or_clear_bad(src_pud) &&
+		    pud_none_or_clear_bad(dst_pud)) {
+			continue;
+		} else if (pud_none_or_clear_bad(src_pud)) {
+			/* src is unmapped, but dst not --> free dst too */
+			zap_pmd_range(tlb, dst_vma, dst_pud, addr, next, NULL);
+			free_pmd_range(tlb, dst_pud, addr, next, addr, next);
+
+			continue;
+		}
+
+		if (unlikely(dup_pmd_range(dst_mm, dst_vma, src_mm, src_vma,
+					   tlb, dst_pud, src_pud, addr, next)))
+			return -ENOMEM;
+	} while (dst_pud++, src_pud++, addr = next, addr != end);
+
+	return 0;
+}
+
+/**
+ * One-to-one duplicate the page table entries of one memory map to another
+ * memory map. After this function, the destination memory map will have the
+ * exact same page table entries for the specified region as the source memory
+ * map. Preexisting mappings in the destination memory map will be removed
+ * before they are overwritten with the ones from the source memory map if they
+ * differ.
+ *
+ * The difference between this function and @copy_page_range is that
+ * 'copy_page_range' will copy the underlying memory pages if necessary (e.g.
+ * for anonymous memory) with the help of copy-on-write while 'dup_page_range'
+ * will only duplicate the page table entries and hence allow both memory maps
+ * to actually share the referenced memory pages.
+ **/
+int dup_page_range(struct mm_struct *dst_mm, struct vm_area_struct *dst_vma,
+		   struct mm_struct *src_mm, struct vm_area_struct *src_vma)
+{
+	pgd_t *dst_pgd, *src_pgd;
+	struct mmu_gather tlb;
+	unsigned long next;
+	unsigned long addr = src_vma->vm_start;
+	unsigned long end = src_vma->vm_end;
+	unsigned long mmu_start = dst_vma->vm_start;
+	unsigned long mmu_end = dst_vma->vm_end;
+	int ret = 0;
+
+	if (is_vm_hugetlb_page(src_vma))
+		return dup_hugetlb_page_range(dst_mm, dst_vma, src_mm,
+					      src_vma);
+
+	tlb_gather_mmu(&tlb, dst_mm, mmu_start, mmu_end);
+	mmu_notifier_invalidate_range_start(dst_mm, mmu_start, mmu_end);
+
+	dst_pgd = pgd_offset(dst_mm, addr);
+	src_pgd = pgd_offset(src_mm, addr);
+	do {
+		next = pgd_addr_end(addr, end);
+		if (pgd_none_or_clear_bad(src_pgd) &&
+		    pgd_none_or_clear_bad(dst_pgd)) {
+			continue;
+		} else if (pgd_none_or_clear_bad(src_pgd)) {
+			/* src is unmapped, but dst not --> free dst too */
+			zap_pud_range(&tlb, dst_vma, dst_pgd, addr, next, NULL);
+			free_pud_range(&tlb, dst_pgd, addr, next, addr, next);
+
+			continue;
+		}
+
+		if (unlikely(dup_pud_range(dst_mm, dst_vma, src_mm, src_vma,
+					   &tlb, dst_pgd, src_pgd, addr,
+					   next))) {
+			ret = -ENOMEM;
+			break;
+		}
+	} while (dst_pgd++, src_pgd++, addr = next, addr != end);
+
+	mmu_notifier_invalidate_range_end(dst_mm, mmu_start, mmu_end);
+	tlb_finish_mmu(&tlb, mmu_start, mmu_end);
+
+	return ret;
+}
 
 pte_t *__get_locked_pte(struct mm_struct *mm, unsigned long addr,
 			spinlock_t **ptl)

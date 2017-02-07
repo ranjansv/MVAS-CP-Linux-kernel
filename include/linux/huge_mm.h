@@ -5,6 +5,12 @@ extern int do_huge_pmd_anonymous_page(struct vm_fault *vmf);
 extern int copy_huge_pmd(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 			 pmd_t *dst_pmd, pmd_t *src_pmd, unsigned long addr,
 			 struct vm_area_struct *vma);
+extern int dup_huge_pmd(struct mm_struct *dst_mm,
+			struct vm_area_struct *dst_vma,
+			struct mm_struct *src_mm,
+			struct vm_area_struct *src_vma,
+			struct mmu_gather *tlb, pmd_t *dst_pmd, pmd_t *src_pmd,
+			unsigned long addr);
 extern void huge_pmd_set_accessed(struct vm_fault *vmf, pmd_t orig_pmd);
 extern int do_huge_pmd_wp_page(struct vm_fault *vmf, pmd_t orig_pmd);
 extern struct page *follow_trans_huge_pmd(struct vm_area_struct *vma,

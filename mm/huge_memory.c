@@ -887,6 +887,71 @@ out:
 	return ret;
 }
 
+int dup_huge_pmd(struct mm_struct *dst_mm, struct vm_area_struct *dst_vma,
+		 struct mm_struct *src_mm, struct vm_area_struct *src_vma,
+		 struct mmu_gather *tlb, pmd_t *dst_pmd, pmd_t *src_pmd,
+		 unsigned long addr)
+{
+	spinlock_t *dst_ptl, *src_ptl;
+	struct page *page;
+	pmd_t pmd;
+	pgtable_t pgtable;
+	int ret;
+
+	pgtable = pte_alloc_one(dst_mm, addr);
+	if (!pgtable)
+		return -ENOMEM;
+
+	if (!pmd_none_or_clear_bad(dst_pmd) &&
+	    unlikely(zap_huge_pmd(tlb, dst_vma, dst_pmd, addr)))
+		return -ENOMEM;
+
+	dst_ptl = pmd_lock(dst_mm, dst_pmd);
+	src_ptl = pmd_lockptr(src_mm, src_pmd);
+	spin_lock_nested(src_ptl, SINGLE_DEPTH_NESTING);
+
+	if (!pmd_trans_huge(*src_pmd)) {
+		pte_free(dst_mm, pgtable);
+		ret = -EAGAIN;
+		goto out_unlock;
+	}
+
+	if (is_huge_zero_pmd(*src_pmd)) {
+		struct page *zero_page;
+
+		zero_page = mm_get_huge_zero_page(dst_mm);
+		set_huge_zero_page(pgtable, dst_mm, dst_vma, addr, dst_pmd,
+				   zero_page);
+
+		ret = 0;
+		goto out_unlock;
+	}
+
+	pmd = *src_pmd;
+
+	page = pmd_page(pmd);
+	VM_BUG_ON_PAGE(!PageHead(page), page);
+	get_page(page);
+	page_dup_rmap(page, true);
+
+	add_mm_counter(dst_mm, MM_ANONPAGES, HPAGE_PMD_NR);
+	atomic_long_inc(&dst_mm->nr_ptes);
+	pgtable_trans_huge_deposit(dst_mm, dst_pmd, pgtable);
+
+	if (!(dst_vma->vm_flags & VM_WRITE))
+		pmd = pmd_wrprotect(pmd);
+	pmd = pmd_mkold(pmd);
+
+	set_pmd_at(dst_mm, addr, dst_pmd, pmd);
+	ret = 0;
+
+out_unlock:
+	spin_unlock(src_ptl);
+	spin_unlock(dst_ptl);
+
+	return ret;
+}
+
 void huge_pmd_set_accessed(struct vm_fault *vmf, pmd_t orig_pmd)
 {
 	pmd_t entry;
