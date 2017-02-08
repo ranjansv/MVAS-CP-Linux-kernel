@@ -148,12 +148,13 @@ static void __dump_memory_map(const char *title, struct mm_struct *mm)
 		else
 			pr_cont(" OTHER ");
 
-		pr_cont("%c%c%c%c [%c]",
+		pr_cont("%c%c%c%c [%c:%c]",
 			vma->vm_flags & VM_READ ? 'r' : '-',
 			vma->vm_flags & VM_WRITE ? 'w' : '-',
 			vma->vm_flags & VM_EXEC ? 'x' : '-',
 			vma->vm_flags & VM_MAYSHARE ? 's' : 'p',
-			vma->vas_reference ? 'v' : '-');
+			vma->vas_reference ? 'v' : '-',
+			vma->vas_attached ? 'a' : '-');
 
 		if (vma->vm_file) {
 			struct file *f = vma->vm_file;
@@ -998,6 +999,21 @@ static void vas_seg_put_share(int type, struct vas_seg *seg)
 }
 
 /**
+ * is_code_region() - Check whether the vm_area belongs to the task's code
+ *		      memory region.
+ * @vma: The vm_area that should be checked.
+ *
+ * Return: Whether or not the vm_area belongs to the task's code memory region.
+ */
+static inline bool is_code_region(struct vm_area_struct *vma)
+{
+	struct mm_struct *mm = vma->vm_mm;
+
+	return ((vma->vm_start >= round_down(mm->start_code, PAGE_SIZE)) &&
+		(vma->vm_end <= round_up(mm->end_code, PAGE_SIZE)));
+}
+
+/**
  * init_vas_mm() - Initialize the memory map of a new VAS.
  * @vas: The VAS for which the memory map should be initialized.
  *
@@ -1209,6 +1225,8 @@ static int check_permission(kuid_t uid, kgid_t gid, umode_t mode, int type)
  * @src_vma: The vm_area that should be copied.
  * @dst_mm: The memory map to which the vm_area should be copied.
  * @vm_flags: The vm_flags that should be used for the new vm_area.
+ * @dup_pages: Whether or not the corresponding page table entries should also
+ *	       be duplicated.
  *
  * This function requires that the semaphores of the destination memory maps is
  * taken in write-mode and the one of the source memory map at least in
@@ -1219,7 +1237,8 @@ static int check_permission(kuid_t uid, kgid_t gid, umode_t mode, int type)
 static struct vm_area_struct *copy_vm_area(struct mm_struct *src_mm,
 					   struct vm_area_struct *src_vma,
 					   struct mm_struct *dst_mm,
-					   unsigned long vm_flags)
+					   unsigned long vm_flags,
+					   bool dup_pages)
 {
 	struct vm_area_struct *vma, *prev;
 	struct rb_node **rb_link, *rb_parent;
@@ -1254,11 +1273,13 @@ static struct vm_area_struct *copy_vm_area(struct mm_struct *src_mm,
 	if (vma->vm_ops && vma->vm_ops->open)
 		vma->vm_ops->open(vma);
 	vma->vas_last_update = src_vma->vas_last_update;
+	vma->vas_attached = dup_pages;
 
 	vma_link(dst_mm, vma, prev, rb_link, rb_parent);
 
 	vm_stat_account(dst_mm, vma->vm_flags, vma_pages(vma));
-	if (unlikely(dup_page_range(dst_mm, vma, src_mm, src_vma)))
+	if (dup_pages &&
+	    unlikely(dup_page_range(dst_mm, vma, src_mm, src_vma)))
 		pr_vas_debug("Failed to copy page table for VMA %p from %p\n",
 			     vma, src_vma);
 
@@ -1344,7 +1365,8 @@ static struct vm_area_struct *update_vm_area(struct mm_struct *src_mm,
 			goto out;
 		}
 
-		dst_vma = copy_vm_area(src_mm, src_vma, dst_mm, orig_vm_flags);
+		dst_vma = copy_vm_area(src_mm, src_vma, dst_mm, orig_vm_flags,
+				       true);
 		if (!dst_vma)
 			goto out;
 
@@ -1404,7 +1426,8 @@ static int vas_merge(struct att_vas *avas, struct vas *vas, int type)
 		if (!(type & MAY_WRITE))
 			merged_vm_flags &= ~(VM_WRITE | VM_MAYWRITE);
 
-		new_vma = copy_vm_area(vas_mm, vma, avas_mm, merged_vm_flags);
+		new_vma = copy_vm_area(vas_mm, vma, avas_mm, merged_vm_flags,
+				       true);
 		if (!new_vma) {
 			pr_vas_debug("Failed to merge a VAS memory region (%#lx - %#lx)\n",
 				     vma->vm_start, vma->vm_end);
@@ -1476,7 +1499,7 @@ static int vas_unmerge(struct att_vas *avas, struct vas *vas)
 				     vma->vm_start, vma->vm_end);
 
 			new_vma = copy_vm_area(avas_mm, vma, vas_mm,
-					       vma->vm_flags);
+					       vma->vm_flags, true);
 			if (!new_vma) {
 				pr_vas_debug("Failed to unmerge a new VAS memory region (%#lx - %#lx)\n",
 					     vma->vm_start, vma->vm_end);
@@ -1485,7 +1508,8 @@ static int vas_unmerge(struct att_vas *avas, struct vas *vas)
 			}
 
 			new_vma->vas_reference = NULL;
-		} else {
+			new_vma->vas_attached = false;
+		} else if (vma->vas_attached) {
 			struct vm_area_struct *upd_vma;
 
 			/*
@@ -1504,6 +1528,9 @@ static int vas_unmerge(struct att_vas *avas, struct vas *vas)
 				ret = -EFAULT;
 				goto out_unlock;
 			}
+		} else {
+			pr_vas_debug("Skip not-attached memory region (%#lx - %#lx) during VAS unmerging\n",
+				     vma->vm_start, vma->vm_end);
 		}
 
 		/* Remove the current VMA from the attached-VAS memory map. */
@@ -1522,14 +1549,19 @@ out_unlock:
 }
 
 /**
- * task_merge() - Merge task related parts into an attached-VAS memory map.
+ * __task_merge() - Merge task related parts into an attached-VAS memory map.
  * @avas: The pointer to the attached-VAS data structure that contains all the
  *	  information for this attachment.
  * @tsk: The pointer to the task to which the VAS will be attached.
+ * @default_copy_eagerly: How should all the memory regions except the code
+ *			  region be handled. If true, the page tables of the
+ *			  memory regions will be duplicated, if false they will
+ *			  not be duplicated.
  *
  * Return: 0 on success, -ERRNO otherwise.
  */
-static int task_merge(struct att_vas *avas, struct task_struct *tsk)
+static int __task_merge(struct att_vas *avas, struct task_struct *tsk,
+			bool default_copy_eagerly)
 {
 	struct vm_area_struct *vma, *new_vma;
 	struct mm_struct *avas_mm, *tsk_mm;
@@ -1550,10 +1582,23 @@ static int task_merge(struct att_vas *avas, struct task_struct *tsk)
 	 * map to the attached-VAS memory map.
 	 */
 	for (vma = tsk_mm->mmap; vma; vma = vma->vm_next) {
-		pr_vas_debug("Merging a task memory region (%#lx - %#lx)\n",
-			     vma->vm_start, vma->vm_end);
+		bool copy_eagerly = default_copy_eagerly;
 
-		new_vma = copy_vm_area(tsk_mm, vma, avas_mm, vma->vm_flags);
+		/*
+		 * The code region of the task will *always* be copied eagerly.
+		 * We need this region in any case to continue execution. All
+		 * the other memory regions are copied according to the
+		 * 'default_copy_eagerly' variable.
+		 */
+		if (is_code_region(vma))
+			copy_eagerly = true;
+
+		pr_vas_debug("Merging a task memory region (%#lx - %#lx) %s\n",
+			     vma->vm_start, vma->vm_end,
+			     copy_eagerly ? "eagerly" : "lazily");
+
+		new_vma = copy_vm_area(tsk_mm, vma, avas_mm, vma->vm_flags,
+				       copy_eagerly);
 		if (!new_vma) {
 			pr_vas_debug("Failed to merge a task memory region (%#lx - %#lx)\n",
 				     vma->vm_start, vma->vm_end);
@@ -1579,6 +1624,16 @@ out_unlock:
 
 	return ret;
 }
+
+/*
+ * Decide based on the kernel configuration setting if we copy task memory
+ * regions eagerly or lazily.
+ */
+#ifdef CONFIG_VAS_LAZY_ATTACH
+#define task_merge(avas, tsk) __task_merge(avas, tsk, false)
+#else
+#define task_merge(avas, tsk) __task_merge(avas, tsk, true)
+#endif
 
 /**
  * task_unmerge() - Unmerge task related parts from an attached-VAS memory map.
@@ -1671,7 +1726,8 @@ static int vas_seg_merge(struct vas *vas, struct vas_seg *seg, int type)
 		if (!(type & MAY_WRITE))
 			merged_vm_flags &= ~(VM_WRITE | VM_MAYWRITE);
 
-		new_vma = copy_vm_area(seg_mm, vma, vas_mm, merged_vm_flags);
+		new_vma = copy_vm_area(seg_mm, vma, vas_mm, merged_vm_flags,
+				       true);
 		if (!new_vma) {
 			pr_vas_debug("Failed to merge a VAS segment memory region (%#lx - %#lx)\n",
 				     vma->vm_start, vma->vm_end);
@@ -1733,7 +1789,7 @@ static int vas_seg_unmerge(struct vas *vas, struct vas_seg *seg)
 			pr_vas_debug("Skipping memory region (%#lx - %#lx) during VAS segment unmerging\n",
 				     vma->vm_start, vma->vm_end);
 			continue;
-		} else {
+		} else if (vma->vas_attached) {
 			struct vm_area_struct *upd_vma;
 
 			pr_vas_debug("Unmerging a VAS segment memory region (%#lx - %#lx)\n",
@@ -1746,6 +1802,9 @@ static int vas_seg_unmerge(struct vas *vas, struct vas_seg *seg)
 				ret = -EFAULT;
 				goto out_unlock;
 			}
+		} else {
+			pr_vas_debug("Skip not-attached memory region (%#lx - %#lx) during segment unmerging\n",
+				     vma->vm_start, vma->vm_end);
 		}
 
 		/* Remove the current VMA from the VAS memory map. */
@@ -1941,7 +2000,13 @@ static int sync_from_task(struct mm_struct *avas_mm, struct mm_struct *tsk_mm)
 
 		ref = vas_find_reference(avas_mm, vma);
 		if (!ref) {
-			ref = copy_vm_area(tsk_mm, vma, avas_mm, vma->vm_flags);
+#ifdef CONFIG_VAS_LAZY_ATTACH
+			ref = copy_vm_area(tsk_mm, vma, avas_mm, vma->vm_flags,
+					   false);
+#else
+			ref = copy_vm_area(tsk_mm, vma, avas_mm, vma->vm_flags,
+					   true);
+#endif
 
 			if (!ref) {
 				pr_vas_debug("Failed to copy memory region (%#lx - %#lx) during task sync\n",
@@ -1955,7 +2020,7 @@ static int sync_from_task(struct mm_struct *avas_mm, struct mm_struct *tsk_mm)
 			 * copied it from.
 			 */
 			ref->vas_reference = tsk_mm;
-		} else {
+		} else if (ref->vas_attached) {
 			ref = update_vm_area(tsk_mm, vma, avas_mm, ref);
 			if (!ref) {
 				pr_vas_debug("Failed to update memory region (%#lx - %#lx) during task sync\n",
@@ -1963,6 +2028,9 @@ static int sync_from_task(struct mm_struct *avas_mm, struct mm_struct *tsk_mm)
 				ret = -EFAULT;
 				break;
 			}
+		} else {
+			pr_vas_debug("Skip not-attached memory region (%#lx - %#lx) during task sync\n",
+				     vma->vm_start, vma->vm_end);
 		}
 	}
 
@@ -1990,7 +2058,7 @@ static int sync_to_task(struct mm_struct *avas_mm, struct mm_struct *tsk_mm)
 		if (vma->vas_reference != tsk_mm) {
 			pr_vas_debug("Skip unrelated memory region (%#lx - %#lx) during task resync\n",
 				     vma->vm_start, vma->vm_end);
-		} else {
+		} else if (vma->vas_attached) {
 			struct vm_area_struct *ref;
 
 			ref = update_vm_area(avas_mm, vma, tsk_mm, NULL);
@@ -2000,6 +2068,9 @@ static int sync_to_task(struct mm_struct *avas_mm, struct mm_struct *tsk_mm)
 				ret = -EFAULT;
 				break;
 			}
+		} else {
+			pr_vas_debug("Skip not-attached memory region (%#lx - %#lx) during task resync\n",
+				     vma->vm_start, vma->vm_end);
 		}
 	}
 
@@ -3374,6 +3445,55 @@ void vas_exit(struct task_struct *tsk)
 		pr_vas_debug("Deleted VAS context\n");
 	}
 }
+
+#ifdef CONFIG_VAS_LAZY_ATTACH
+
+/**
+ * vas_lazy_attach_vma() - Lazily update the page tables of a vm_area which was
+ *			   not completely setup during the VAS attaching.
+ * @vma: The vm_area for which the page tables should be setup before
+ *	 continuing the page fault handling.
+ *
+ * Return: 0 of the lazy-attach was successful or not necessary, or 1 if
+ *	   something went wrong.
+ */
+int vas_lazy_attach_vma(struct vm_area_struct *vma)
+{
+	struct mm_struct *ref_mm, *mm;
+	struct vm_area_struct *ref_vma;
+
+	if (likely(!vma->vas_reference))
+		return 0;
+	if (vma->vas_attached)
+		return 0;
+
+	ref_mm = vma->vas_reference;
+	mm = vma->vm_mm;
+
+	down_read_nested(&ref_mm->mmap_sem, SINGLE_DEPTH_NESTING);
+	ref_vma = vas_find_reference(ref_mm, vma);
+	up_read(&ref_mm->mmap_sem);
+	if (!ref_vma) {
+		pr_vas_debug("Couldn't find VAS reference\n");
+		return 1;
+	}
+
+	pr_vas_debug("Lazy-attach memory region (%#lx - %#lx)\n",
+		     ref_vma->vm_start, ref_vma->vm_end);
+
+	if (unlikely(dup_page_range(mm, vma, ref_mm, ref_vma))) {
+		pr_vas_debug("Failed to copy page tables for VMA %p from %p\n",
+			     vma, ref_vma);
+		return 1;
+	}
+
+	vma->vas_last_update = ref_vma->vas_last_update;
+	vma->vas_attached = true;
+
+	return 0;
+}
+
+#endif /* CONFIG_VAS_LAZY_ATTACH */
 
 
 /***

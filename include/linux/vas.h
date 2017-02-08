@@ -2,6 +2,7 @@
 #define _LINUX_VAS_H
 
 
+#include <linux/mm_types.h>
 #include <linux/sched.h>
 #include <linux/vas_types.h>
 
@@ -116,5 +117,20 @@ static inline int vas_clone(int cf, struct task_struct *tsk) { return 0; }
 static inline int vas_exit(struct task_struct *tsk) { return 0; }
 
 #endif /* CONFIG_VAS */
+
+
+/***
+ * Management of the VAS lazy attaching
+ ***/
+
+#ifdef CONFIG_VAS_LAZY_ATTACH
+
+extern int vas_lazy_attach_vma(struct vm_area_struct *vma);
+
+#else /* CONFIG_VAS_LAZY_ATTACH */
+
+static inline int vas_lazy_attach_vma(struct vm_area_struct *vma) { return 0; }
+
+#endif /* CONFIG_VAS_LAZY_ATTACH */
 
 #endif

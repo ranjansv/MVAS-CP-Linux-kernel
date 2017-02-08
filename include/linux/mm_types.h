@@ -362,6 +362,7 @@ struct vm_area_struct {
 #ifdef CONFIG_VAS
 	struct mm_struct *vas_reference;
 	ktime_t vas_last_update;
+	bool vas_attached;
 #endif
 };
 

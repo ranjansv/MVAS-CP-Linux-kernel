@@ -720,6 +720,24 @@ config VAS
 
 	  If not sure, then say N.
 
+config VAS_LAZY_ATTACH
+	bool "Use lazy-attach for First Class Virtual Address Spaces"
+	depends on VAS
+	default y
+	help
+	  When this option is enabled, memory regions of First Class Virtual
+	  Address Spaces will be mapped in the task's address space lazily after
+	  the switch happened. That means, the actual mapping will happen when a
+	  page fault occurs for the particular memory region. While this
+	  technique is less costly during the switching operation, it can become
+	  very costly during the page fault handling.
+
+	  Hence if the program uses a lot of different memory regions, this
+	  lazy-attaching technique can be more costly than doing the mapping
+	  eagerly during the switch.
+
+	  If not sure, then say Y.
+
 config VAS_DEBUG
 	bool "Debugging output for First Class Virtual Address Spaces"
 	depends on VAS

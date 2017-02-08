@@ -64,6 +64,7 @@
 #include <linux/debugfs.h>
 #include <linux/userfaultfd_k.h>
 #include <linux/dax.h>
+#include <linux/vas.h>
 
 #include <asm/io.h>
 #include <asm/mmu_context.h>
@@ -3999,6 +4000,10 @@ int handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 
 	/* do counter updates before entering really critical section. */
 	check_sync_rss_stat(current);
+
+	/* Check if this VMA belongs to a VAS and needs to be lazy attached. */
+	if (unlikely(vas_lazy_attach_vma(vma)))
+		return VM_FAULT_SIGSEGV;
 
 	/*
 	 * Enable the memcg OOM handling for faults triggered in user
