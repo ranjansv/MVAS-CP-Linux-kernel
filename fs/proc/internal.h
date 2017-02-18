@@ -61,6 +61,7 @@ union proc_op {
 struct proc_inode {
 	struct pid *pid;
 	unsigned int fd;
+	int vas_id;
 	union proc_op op;
 	struct proc_dir_entry *pde;
 	struct ctl_table_header *sysctl;

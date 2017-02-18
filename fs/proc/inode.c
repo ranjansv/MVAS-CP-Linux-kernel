@@ -63,6 +63,7 @@ static struct inode *proc_alloc_inode(struct super_block *sb)
 	ei->pid = NULL;
 	ei->fd = 0;
 	ei->op.proc_get_link = NULL;
+	ei->vas_id = 0;
 	ei->pde = NULL;
 	ei->sysctl = NULL;
 	ei->sysctl_entry = NULL;

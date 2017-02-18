@@ -745,3 +745,12 @@ config VAS_DEBUG
 	help
 	  Enable extensive debugging output for the First Class Virtual Address
 	  Spaces feature.
+
+config VAS_PROCFS
+	bool "procfs entries for First Class Virtual Address Spaces"
+	depends on VAS && PROC_FS
+	default y
+	help
+	  Provide information in /proc/$PID about all First Class 
+	  Virtual Address Spaces that are currently attached to the
+	  corresponding process.
