@@ -2922,7 +2922,12 @@ static inline unsigned long sigsp(unsigned long sp, struct ksignal *ksig)
 /*
  * Routines for handling mm_structs
  */
-extern struct mm_struct * mm_alloc(void);
+extern struct mm_struct *mm_setup(struct mm_struct *mm);
+extern struct mm_struct *mm_set_task(struct mm_struct *mm,
+				     struct task_struct *p,
+				     struct user_namespace *user_ns);
+extern struct mm_struct *mm_allocate(void);
+extern struct mm_struct *mm_allocate_and_setup(void);
 
 /* mmdrop drops the mm and the page tables */
 extern void __mmdrop(struct mm_struct *);

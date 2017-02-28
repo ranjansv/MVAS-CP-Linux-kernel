@@ -245,7 +245,7 @@ static void ecard_init_pgtables(struct mm_struct *mm)
 
 static int ecard_init_mm(void)
 {
-	struct mm_struct * mm = mm_alloc();
+	struct mm_struct *mm = mm_allocate_and_setup();
 	struct mm_struct *active_mm = current->active_mm;
 
 	if (!mm)

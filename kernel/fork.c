@@ -747,8 +747,13 @@ static void mm_init_owner(struct mm_struct *mm, struct task_struct *p)
 #endif
 }
 
-static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
-	struct user_namespace *user_ns)
+/**
+ * mm_setup() - Initialize all the task-unrelated parts of the mm_struct.
+ * @mm: The mm_struct that should be initialized.
+ *
+ * Return: The initialized mm_struct or NULL if an error happened.
+ */
+struct mm_struct *mm_setup(struct mm_struct *mm)
 {
 	mm->mmap = NULL;
 	mm->mm_rb = RB_ROOT;
@@ -767,24 +772,42 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	spin_lock_init(&mm->page_table_lock);
 	mm_init_cpumask(mm);
 	mm_init_aio(mm);
-	mm_init_owner(mm, p);
 	mmu_notifier_mm_init(mm);
 	clear_tlb_flush_pending(mm);
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 	mm->pmd_huge_pte = NULL;
 #endif
 
-	if (current->mm) {
-		mm->flags = current->mm->flags & MMF_INIT_MASK;
-		mm->def_flags = current->mm->def_flags & VM_INIT_DEF_MASK;
-	} else {
-		mm->flags = default_dump_filter;
-		mm->def_flags = 0;
-	}
+	mm->flags = default_dump_filter;
+	mm->def_flags = 0;
 
 	if (mm_alloc_pgd(mm))
 		goto fail_nopgd;
 
+	return mm;
+
+fail_nopgd:
+	free_mm(mm);
+	return NULL;
+}
+
+/**
+ * mm_set_task() - Initialize all the task-related parts of the mm_struct.
+ * @mm: The mm_struct that should be initialized.
+ * @p: The task_struct to which the mm_struct will belong to.
+ * @user_ns: The user_namespace to which the mm_struct will belong to.
+ *
+ * Return: The initialized mm_struct or NULL if an error happened.
+ */
+struct mm_struct *mm_set_task(struct mm_struct *mm, struct task_struct *p,
+			      struct user_namespace *user_ns)
+{
+	if (current->mm) {
+		mm->flags = current->mm->flags & MMF_INIT_MASK;
+		mm->def_flags = current->mm->def_flags & VM_INIT_DEF_MASK;
+	}
+
+	mm_init_owner(mm, p);
 	if (init_new_context(p, mm))
 		goto fail_nocontext;
 
@@ -793,9 +816,19 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 
 fail_nocontext:
 	mm_free_pgd(mm);
-fail_nopgd:
 	free_mm(mm);
 	return NULL;
+}
+
+static struct mm_struct *mm_setup_all(struct mm_struct *mm,
+				      struct task_struct *p,
+				      struct user_namespace *user_ns)
+{
+	mm = mm_setup(mm);
+	if (!mm)
+		return NULL;
+
+	return mm_set_task(mm, p, user_ns);
 }
 
 static void check_mm(struct mm_struct *mm)
@@ -822,10 +855,10 @@ static void check_mm(struct mm_struct *mm)
 #endif
 }
 
-/*
- * Allocate and initialize an mm_struct.
+/**
+ * mm_allocate() - Allocate and zero an mm_struct.
  */
-struct mm_struct *mm_alloc(void)
+struct mm_struct *mm_allocate(void)
 {
 	struct mm_struct *mm;
 
@@ -834,8 +867,23 @@ struct mm_struct *mm_alloc(void)
 		return NULL;
 
 	memset(mm, 0, sizeof(*mm));
-	return mm_init(mm, current, current_user_ns());
+	return mm;
 }
+
+/**
+ * mm_allocate_and_setup() - Allocate and fully initialize an mm_struct.
+ */
+struct mm_struct *mm_allocate_and_setup(void)
+{
+	struct mm_struct *mm;
+
+	mm = mm_allocate();
+	if (!mm)
+		return NULL;
+
+	return mm_setup_all(mm, current, current_user_ns());
+}
+
 
 /*
  * Called when the last reference to the mm
@@ -1131,7 +1179,7 @@ static struct mm_struct *dup_mm(struct task_struct *tsk)
 
 	memcpy(mm, oldmm, sizeof(*mm));
 
-	if (!mm_init(mm, tsk, mm->user_ns))
+	if (!mm_setup_all(mm, tsk, mm->user_ns))
 		goto fail_nomem;
 
 	err = dup_mmap(mm, oldmm);
