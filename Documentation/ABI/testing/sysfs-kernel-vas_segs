@@ -1,0 +1,51 @@
+What:		/sys/kernel/vas_segs
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		Kernel interface for VAS segments.
+
+		The /sys/kernel/vas_seg directory contains subdirectories for each
+		VAS segment that is currently known to the kernel.
+
+What:		/sys/kernel/vas_segs/<seg>
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		The directories for each VAS segment contain various files that can be
+        used to collect additional information about it.
+
+What:		/sys/kernel/vas_segs/<seg>/name
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the user-defined
+		name of the corresponding VAS segment.
+
+What:		/sys/kernel/vas_segs/<seg>/mode
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the access
+		permissions of the corresponding VAS segment.
+
+What:		/sys/kernel/vas_segs/<seg>/user
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the owning user of
+		the corresponding VAS segment.
+
+What:		/sys/kernel/vas_segs/<seg>/group
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the owning group
+		of the corresponding VAS segment.
+
+What:		/sys/kernel/vas_segs/<seg>/region
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+        A read-only attribute that can be used to get the virtual memory region
+        that is covered by the corresponding VAS segment.
+

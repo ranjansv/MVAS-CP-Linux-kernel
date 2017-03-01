@@ -66,6 +66,7 @@ struct perf_event_attr;
 struct file_handle;
 struct sigaltstack;
 struct vas_attr;
+struct vas_seg_attr;
 union bpf_attr;
 
 #include <linux/types.h>
@@ -913,5 +914,14 @@ asmlinkage long sys_vas_switch(int vid);
 asmlinkage long sys_active_vas(void);
 asmlinkage long sys_vas_getattr(int vid, struct vas_attr __user *attr);
 asmlinkage long sys_vas_setattr(int vid, struct vas_attr __user *attr);
+
+asmlinkage long sys_vas_seg_create(const char __user *name, unsigned long start,
+				   unsigned long end, umode_t mode);
+asmlinkage long sys_vas_seg_delete(int sid);
+asmlinkage long sys_vas_seg_find(const char __user *name);
+asmlinkage long sys_vas_seg_attach(int vid, int sid, int type);
+asmlinkage long sys_vas_seg_detach(int vid, int sid);
+asmlinkage long sys_vas_seg_getattr(int sid, struct vas_seg_attr __user *attr);
+asmlinkage long sys_vas_seg_setattr(int sid, struct vas_seg_attr __user *attr);
 
 #endif

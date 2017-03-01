@@ -347,6 +347,13 @@
 338	common	active_vas		sys_active_vas
 339	common	vas_getattr		sys_vas_getattr
 340	common	vas_setattr		sys_vas_setattr
+341	common	vas_seg_create		sys_vas_seg_create
+342	common	vas_seg_delete		sys_vas_seg_delete
+343	common	vas_seg_find		sys_vas_seg_find
+344	common	vas_seg_attach		sys_vas_seg_attach
+345	common	vas_seg_detach		sys_vas_seg_detach
+346	common	vas_seg_getattr		sys_vas_seg_getattr
+347	common	vas_seg_setattr		sys_vas_seg_setattr
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact

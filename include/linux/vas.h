@@ -63,6 +63,39 @@ extern int vas_setattr(int vid, struct vas_attr *attr);
 
 
 /***
+ * Management of VAS segments
+ ***/
+
+/**
+ * vas_seg_lock() - Acquire the lock of a VAS segment.
+ * @seg: The pointer to the VAS segment data structure that should be locked.
+ */
+#define vas_seg_lock(seg) mutex_lock(&(seg)->mtx)
+
+/**
+ * vas_seg_unlock() - Release the lock of a VAS segment.
+ * @seg: The pointer to the VAS segment data structure that should be unlocked.
+ */
+#define vas_seg_unlock(seg) mutex_unlock(&(seg)->mtx)
+
+extern int vas_seg_create(const char *name, unsigned long start,
+			  unsigned long end, umode_t mode);
+
+extern struct vas_seg *vas_seg_get(int sid);
+extern void vas_seg_put(struct vas_seg *seg);
+
+extern int vas_seg_find(const char *name);
+
+extern int vas_seg_delete(int id);
+
+extern int vas_seg_attach(int vid, int sid, int type);
+extern int vas_seg_detach(int vid, int sid);
+
+extern int vas_seg_getattr(int sid, struct vas_seg_attr *attr);
+extern int vas_seg_setattr(int sid, struct vas_seg_attr *attr);
+
+
+/***
  * Management of the VAS subsystem
  ***/
 

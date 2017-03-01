@@ -748,9 +748,23 @@ __SYSCALL(__NR_active_vas, sys_active_vas)
 __SYSCALL(__NR_vas_getattr, sys_vas_getattr)
 #define __NR_vas_setattr 299
 __SYSCALL(__NR_vas_setattr, sys_vas_setattr)
+#define __NR_vas_seg_create 300
+__SYSCALL(__NR_vas_seg_create, sys_vas_seg_create)
+#define __NR_vas_seg_delete 301
+__SYSCALL(__NR_vas_seg_delete, sys_vas_seg_delete)
+#define __NR_vas_seg_find 302
+__SYSCALL(__NR_vas_seg_find, sys_vas_seg_find)
+#define __NR_vas_seg_attach 303
+__SYSCALL(__NR_vas_seg_attach, sys_vas_seg_attach)
+#define __NR_vas_seg_detach 304
+__SYSCALL(__NR_vas_seg_detach, sys_vas_seg_detach)
+#define __NR_vas_seg_getattr 305
+__SYSCALL(__NR_vas_seg_getattr, sys_vas_seg_getattr)
+#define __NR_vas_seg_setattr 306
+__SYSCALL(__NR_vas_seg_setattr, sys_vas_seg_setattr)
 
 #undef __NR_syscalls
-#define __NR_syscalls 300
+#define __NR_syscalls 307
 
 /*
  * All syscalls below here should go away really,
