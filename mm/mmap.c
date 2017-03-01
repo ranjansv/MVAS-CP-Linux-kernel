@@ -1339,7 +1339,7 @@ unsigned long do_mmap(struct mm_struct *mm, struct file *file,
 	/* Obtain the address to map to. we verify (or select) it and ensure
 	 * that it represents a valid section of the address space.
 	 */
-	addr = get_unmapped_area(file, addr, len, pgoff, flags);
+	addr = get_unmapped_area(mm, file, addr, len, pgoff, flags);
 	if (offset_in_page(addr))
 		return addr;
 
@@ -1742,7 +1742,8 @@ unacct_error:
 	return error;
 }
 
-unsigned long unmapped_area(struct vm_unmapped_area_info *info)
+unsigned long unmapped_area(struct mm_struct *mm,
+			    struct vm_unmapped_area_info *info)
 {
 	/*
 	 * We implement the search by looking for an rbtree node that
@@ -1752,7 +1753,6 @@ unsigned long unmapped_area(struct vm_unmapped_area_info *info)
 	 * - gap_end - gap_start >= length
 	 */
 
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long length, low_limit, high_limit, gap_start, gap_end;
 
@@ -1844,9 +1844,9 @@ found:
 	return gap_start;
 }
 
-unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info)
+unsigned long unmapped_area_topdown(struct mm_struct *mm,
+				    struct vm_unmapped_area_info *info)
 {
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long length, low_limit, high_limit, gap_start, gap_end;
 
@@ -1955,10 +1955,10 @@ found_highest:
  */
 #ifndef HAVE_ARCH_UNMAPPED_AREA
 unsigned long
-arch_get_unmapped_area(struct file *filp, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags)
+arch_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	struct vm_unmapped_area_info info;
 
@@ -1981,7 +1981,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	info.low_limit = mm->mmap_base;
 	info.high_limit = TASK_SIZE;
 	info.align_mask = 0;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }
 #endif
 
@@ -1991,12 +1991,11 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
  */
 #ifndef HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
 unsigned long
-arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
-			  const unsigned long len, const unsigned long pgoff,
-			  const unsigned long flags)
+arch_get_unmapped_area_topdown(struct mm_struct *mm, struct file *filp,
+			  const unsigned long addr0, const unsigned long len,
+			  const unsigned long pgoff, const unsigned long flags)
 {
 	struct vm_area_struct *vma;
-	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;
 	struct vm_unmapped_area_info info;
 
@@ -2021,7 +2020,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	info.low_limit = max(PAGE_SIZE, mmap_min_addr);
 	info.high_limit = mm->mmap_base;
 	info.align_mask = 0;
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 
 	/*
 	 * A failed mmap() very likely causes application failure,
@@ -2034,7 +2033,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		info.flags = 0;
 		info.low_limit = TASK_UNMAPPED_BASE;
 		info.high_limit = TASK_SIZE;
-		addr = vm_unmapped_area(&info);
+		addr = vm_unmapped_area(mm, &info);
 	}
 
 	return addr;
@@ -2042,11 +2041,12 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 #endif
 
 unsigned long
-get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
-		unsigned long pgoff, unsigned long flags)
+get_unmapped_area(struct mm_struct *mm, struct file *file, unsigned long addr,
+		  unsigned long len, unsigned long pgoff, unsigned long flags)
 {
-	unsigned long (*get_area)(struct file *, unsigned long,
-				  unsigned long, unsigned long, unsigned long);
+	unsigned long (*get_area)(struct mm_struct *, struct file *,
+				  unsigned long, unsigned long, unsigned long,
+				  unsigned long);
 
 	unsigned long error = arch_mmap_check(addr, len, flags);
 	if (error)
@@ -2056,7 +2056,7 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
 
-	get_area = current->mm->get_unmapped_area;
+	get_area = mm->get_unmapped_area;
 	if (file) {
 		if (file->f_op->get_unmapped_area)
 			get_area = file->f_op->get_unmapped_area;
@@ -2070,7 +2070,7 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 		get_area = shmem_get_unmapped_area;
 	}
 
-	addr = get_area(file, addr, len, pgoff, flags);
+	addr = get_area(mm, file, addr, len, pgoff, flags);
 	if (IS_ERR_VALUE(addr))
 		return addr;
 
@@ -2819,7 +2819,7 @@ static int do_brk(unsigned long addr, unsigned long request)
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 
-	error = get_unmapped_area(NULL, addr, len, 0, MAP_FIXED);
+	error = get_unmapped_area(mm, NULL, addr, len, 0, MAP_FIXED);
 	if (offset_in_page(error))
 		return error;
 

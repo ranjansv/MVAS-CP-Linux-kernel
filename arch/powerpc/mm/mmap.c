@@ -88,11 +88,10 @@ static inline unsigned long mmap_base(unsigned long rnd)
  * HAVE_ARCH_UNMAPPED_AREA
  */
 static unsigned long
-radix__arch_get_unmapped_area(struct file *filp, unsigned long addr,
-			     unsigned long len, unsigned long pgoff,
-			     unsigned long flags)
+radix__arch_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+			     unsigned long addr, unsigned long len,
+			     unsigned long pgoff, unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	struct vm_unmapped_area_info info;
 
@@ -115,18 +114,18 @@ radix__arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	info.low_limit = mm->mmap_base;
 	info.high_limit = TASK_SIZE;
 	info.align_mask = 0;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }
 
 static unsigned long
-radix__arch_get_unmapped_area_topdown(struct file *filp,
+radix__arch_get_unmapped_area_topdown(struct mm_struct *mm,
+				     struct file *filp,
 				     const unsigned long addr0,
 				     const unsigned long len,
 				     const unsigned long pgoff,
 				     const unsigned long flags)
 {
 	struct vm_area_struct *vma;
-	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;
 	struct vm_unmapped_area_info info;
 
@@ -151,7 +150,7 @@ radix__arch_get_unmapped_area_topdown(struct file *filp,
 	info.low_limit = max(PAGE_SIZE, mmap_min_addr);
 	info.high_limit = mm->mmap_base;
 	info.align_mask = 0;
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 
 	/*
 	 * A failed mmap() very likely causes application failure,
@@ -164,7 +163,7 @@ radix__arch_get_unmapped_area_topdown(struct file *filp,
 		info.flags = 0;
 		info.low_limit = TASK_UNMAPPED_BASE;
 		info.high_limit = TASK_SIZE;
-		addr = vm_unmapped_area(&info);
+		addr = vm_unmapped_area(mm, &info);
 	}
 
 	return addr;

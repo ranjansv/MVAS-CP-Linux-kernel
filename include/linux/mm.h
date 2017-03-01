@@ -2014,7 +2014,9 @@ extern int install_special_mapping(struct mm_struct *mm,
 				   unsigned long addr, unsigned long len,
 				   unsigned long flags, struct page **pages);
 
-extern unsigned long get_unmapped_area(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
+extern unsigned long get_unmapped_area(struct mm_struct *, struct file *,
+				       unsigned long, unsigned long,
+				       unsigned long, unsigned long);
 
 extern unsigned long mmap_region(struct mm_struct *mm, struct file *file,
 				 unsigned long addr, unsigned long len,
@@ -2066,8 +2068,10 @@ struct vm_unmapped_area_info {
 	unsigned long align_offset;
 };
 
-extern unsigned long unmapped_area(struct vm_unmapped_area_info *info);
-extern unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info);
+extern unsigned long unmapped_area(struct mm_struct *mm,
+				   struct vm_unmapped_area_info *info);
+extern unsigned long unmapped_area_topdown(struct mm_struct *mm,
+					   struct vm_unmapped_area_info *info);
 
 /*
  * Search for an unmapped address range.
@@ -2079,12 +2083,12 @@ extern unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info);
  * - satisfies (begin_addr & align_mask) == (align_offset & align_mask)
  */
 static inline unsigned long
-vm_unmapped_area(struct vm_unmapped_area_info *info)
+vm_unmapped_area(struct mm_struct *mm, struct vm_unmapped_area_info *info)
 {
 	if (info->flags & VM_UNMAPPED_AREA_TOPDOWN)
-		return unmapped_area_topdown(info);
+		return unmapped_area_topdown(mm, info);
 	else
-		return unmapped_area(info);
+		return unmapped_area(mm, info);
 }
 
 /* truncate.c */

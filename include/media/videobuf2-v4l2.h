@@ -264,8 +264,9 @@ ssize_t vb2_fop_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos);
 unsigned int vb2_fop_poll(struct file *file, poll_table *wait);
 #ifndef CONFIG_MMU
-unsigned long vb2_fop_get_unmapped_area(struct file *file, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags);
+unsigned long vb2_fop_get_unmapped_area(struct mm_struct *mm, struct file *file,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags);
 #endif
 
 /**

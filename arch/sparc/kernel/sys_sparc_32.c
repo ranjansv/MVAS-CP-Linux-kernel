@@ -36,7 +36,9 @@ asmlinkage unsigned long sys_getpagesize(void)
 	return PAGE_SIZE; /* Possibly older binaries want 8192 on sun4's? */
 }
 
-unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsigned long len, unsigned long pgoff, unsigned long flags)
+unsigned long arch_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+				     unsigned long addr, unsigned long len,
+				     unsigned long pgoff, unsigned long flags)
 {
 	struct vm_unmapped_area_info info;
 
@@ -63,7 +65,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	info.align_mask = (flags & MAP_SHARED) ?
 		(PAGE_MASK & (SHMLBA - 1)) : 0;
 	info.align_offset = pgoff << PAGE_SHIFT;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }
 
 /*

@@ -156,7 +156,8 @@ struct v4l2_file_operations {
 #ifdef CONFIG_COMPAT
 	long (*compat_ioctl32) (struct file *, unsigned int, unsigned long);
 #endif
-	unsigned long (*get_unmapped_area) (struct file *, unsigned long,
+	unsigned long (*get_unmapped_area) (struct mm_struct *mm,
+				struct file *filep, unsigned long,
 				unsigned long, unsigned long, unsigned long);
 	int (*mmap) (struct file *, struct vm_area_struct *);
 	int (*open) (struct file *);

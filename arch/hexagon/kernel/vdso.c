@@ -71,7 +71,7 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	/* Try to get it loaded right near ld.so/glibc. */
 	vdso_base = STACK_TOP;
 
-	vdso_base = get_unmapped_area(NULL, vdso_base, PAGE_SIZE, 0, 0);
+	vdso_base = get_unmapped_area(mm, NULL, vdso_base, PAGE_SIZE, 0, 0);
 	if (IS_ERR_VALUE(vdso_base)) {
 		ret = vdso_base;
 		goto up_fail;

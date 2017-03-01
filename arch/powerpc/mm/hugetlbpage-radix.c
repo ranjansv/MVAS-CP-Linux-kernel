@@ -41,11 +41,10 @@ void radix__flush_hugetlb_tlb_range(struct vm_area_struct *vma, unsigned long st
  * ie, use topdown or not based on mmap_is_legacy check ?
  */
 unsigned long
-radix__hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
-				unsigned long len, unsigned long pgoff,
-				unsigned long flags)
+radix__hugetlb_get_unmapped_area(struct mm_struct *mm, struct file *file,
+				unsigned long addr, unsigned long len,
+				unsigned long pgoff, unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	struct hstate *h = hstate_file(file);
 	struct vm_unmapped_area_info info;
@@ -78,5 +77,5 @@ radix__hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	info.high_limit = current->mm->mmap_base;
 	info.align_mask = PAGE_MASK & ~huge_page_mask(h);
 	info.align_offset = 0;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }

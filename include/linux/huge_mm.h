@@ -87,9 +87,9 @@ extern bool is_vma_temporary_stack(struct vm_area_struct *vma);
 
 extern unsigned long transparent_hugepage_flags;
 
-extern unsigned long thp_get_unmapped_area(struct file *filp,
-		unsigned long addr, unsigned long len, unsigned long pgoff,
-		unsigned long flags);
+extern unsigned long thp_get_unmapped_area(struct mm_struct *mm,
+		struct file *filp, unsigned long addr, unsigned long len,
+		unsigned long pgoff, unsigned long flags);
 
 extern void prep_transhuge_page(struct page *page);
 extern void free_transhuge_page(struct page *page);

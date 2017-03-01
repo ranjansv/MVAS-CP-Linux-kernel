@@ -476,12 +476,12 @@ struct user_namespace;
 #ifdef CONFIG_MMU
 extern void arch_pick_mmap_layout(struct mm_struct *mm);
 extern unsigned long
-arch_get_unmapped_area(struct file *, unsigned long, unsigned long,
-		       unsigned long, unsigned long);
+arch_get_unmapped_area(struct mm_struct *mm, struct file *, unsigned long,
+		       unsigned long, unsigned long, unsigned long);
 extern unsigned long
-arch_get_unmapped_area_topdown(struct file *filp, unsigned long addr,
-			  unsigned long len, unsigned long pgoff,
-			  unsigned long flags);
+arch_get_unmapped_area_topdown(struct mm_struct *mm, struct file *filp,
+			       unsigned long addr, unsigned long len,
+			       unsigned long pgoff, unsigned long flags);
 #else
 static inline void arch_pick_mmap_layout(struct mm_struct *mm) {}
 #endif

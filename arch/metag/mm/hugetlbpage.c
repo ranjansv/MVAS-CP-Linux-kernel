@@ -179,7 +179,7 @@ new_search:
 
 /* Do a full search to find an area without any nearby normal pages. */
 static unsigned long
-hugetlb_get_unmapped_area_new_pmd(unsigned long len)
+hugetlb_get_unmapped_area_new_pmd(struct mm_struct *mm, unsigned long len)
 {
 	struct vm_unmapped_area_info info;
 
@@ -189,12 +189,13 @@ hugetlb_get_unmapped_area_new_pmd(unsigned long len)
 	info.high_limit = TASK_SIZE;
 	info.align_mask = PAGE_MASK & HUGEPT_MASK;
 	info.align_offset = 0;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }
 
 unsigned long
-hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags)
+hugetlb_get_unmapped_area(struct mm_struct *mm, struct file *file,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags)
 {
 	struct hstate *h = hstate_file(file);
 
@@ -227,7 +228,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	 * Find an unmapped naturally aligned set of 4MB blocks that we can use
 	 * for huge pages.
 	 */
-	return hugetlb_get_unmapped_area_new_pmd(len);
+	return hugetlb_get_unmapped_area_new_pmd(mm, len);
 }
 
 #endif /*HAVE_ARCH_HUGETLB_UNMAPPED_AREA*/

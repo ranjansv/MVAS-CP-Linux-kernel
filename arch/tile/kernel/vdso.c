@@ -150,7 +150,7 @@ int setup_vdso_pages(void)
 	if (pages == 0)
 		return 0;
 
-	vdso_base = get_unmapped_area(NULL, vdso_base,
+	vdso_base = get_unmapped_area(mm, NULL, vdso_base,
 				      (pages << PAGE_SHIFT) +
 				      ((VDSO_ALIGNMENT - 1) & PAGE_MASK),
 				      0, 0);

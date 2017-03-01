@@ -369,9 +369,9 @@ static long v4l2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #ifdef CONFIG_MMU
 #define v4l2_get_unmapped_area NULL
 #else
-static unsigned long v4l2_get_unmapped_area(struct file *filp,
-		unsigned long addr, unsigned long len, unsigned long pgoff,
-		unsigned long flags)
+static unsigned long v4l2_get_unmapped_area(struct mm_struct *mm,
+		struct file *filp, unsigned long addr, unsigned long len,
+		unsigned long pgoff, unsigned long flags)
 {
 	struct video_device *vdev = video_devdata(filp);
 	int ret;
@@ -380,7 +380,7 @@ static unsigned long v4l2_get_unmapped_area(struct file *filp,
 		return -ENOSYS;
 	if (!video_is_registered(vdev))
 		return -ENODEV;
-	ret = vdev->fops->get_unmapped_area(filp, addr, len, pgoff, flags);
+	ret = vdev->fops->get_unmapped_area(mm, filp, addr, len, pgoff, flags);
 	if (vdev->dev_debug & V4L2_DEV_DEBUG_FOP)
 		printk(KERN_DEBUG "%s: get_unmapped_area (%d)\n",
 			video_device_node_name(vdev), ret);

@@ -56,7 +56,8 @@ void elf_fdpic_arch_lay_out_mm(struct elf_fdpic_params *exec_params,
  * place non-fixed mmaps firstly in the bottom part of memory, working up, and then in the top part
  * of memory, working down
  */
-unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsigned long len,
+unsigned long arch_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+				     unsigned long addr, unsigned long len,
 				     unsigned long pgoff, unsigned long flags)
 {
 	struct vm_area_struct *vma;
@@ -72,7 +73,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	/* only honour a hint if we're not going to clobber something doing so */
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
-		vma = find_vma(current->mm, addr);
+		vma = find_vma(mm, addr);
 		if (TASK_SIZE - len >= addr &&
 		    (!vma || addr + len <= vma->vm_start))
 			goto success;
@@ -82,10 +83,10 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	info.flags = 0;
 	info.length = len;
 	info.low_limit = PAGE_SIZE;
-	info.high_limit = (current->mm->start_stack - 0x00200000);
+	info.high_limit = (mm->start_stack - 0x00200000);
 	info.align_mask = 0;
 	info.align_offset = 0;
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 	if (!(addr & ~PAGE_MASK))
 		goto success;
 	VM_BUG_ON(addr != -ENOMEM);
@@ -93,7 +94,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	/* search from just above the WorkRAM area to the top of memory */
 	info.low_limit = PAGE_ALIGN(0x80000000);
 	info.high_limit = TASK_SIZE;
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 	if (!(addr & ~PAGE_MASK))
 		goto success;
 	VM_BUG_ON(addr != -ENOMEM);

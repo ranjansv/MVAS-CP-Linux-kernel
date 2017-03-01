@@ -452,8 +452,9 @@ static unsigned long mremap_to(unsigned long addr, unsigned long old_len,
 	if (vma->vm_flags & VM_MAYSHARE)
 		map_flags |= MAP_SHARED;
 
-	ret = get_unmapped_area(vma->vm_file, new_addr, new_len, vma->vm_pgoff +
-				((addr - vma->vm_start) >> PAGE_SHIFT),
+	ret = get_unmapped_area(mm, vma->vm_file, new_addr, new_len,
+				vma->vm_pgoff +
+					((addr - vma->vm_start) >> PAGE_SHIFT),
 				map_flags);
 	if (offset_in_page(ret))
 		goto out1;
@@ -475,8 +476,8 @@ static int vma_expandable(struct vm_area_struct *vma, unsigned long delta)
 		return 0;
 	if (vma->vm_next && vma->vm_next->vm_start < end) /* intersection */
 		return 0;
-	if (get_unmapped_area(NULL, vma->vm_start, end - vma->vm_start,
-			      0, MAP_FIXED) & ~PAGE_MASK)
+	if (get_unmapped_area(vma->vm_mm, NULL, vma->vm_start,
+			      end - vma->vm_start, 0, MAP_FIXED) & ~PAGE_MASK)
 		return 0;
 	return 1;
 }
@@ -583,7 +584,7 @@ SYSCALL_DEFINE5(mremap, unsigned long, addr, unsigned long, old_len,
 		if (vma->vm_flags & VM_MAYSHARE)
 			map_flags |= MAP_SHARED;
 
-		new_addr = get_unmapped_area(vma->vm_file, 0, new_len,
+		new_addr = get_unmapped_area(mm, vma->vm_file, 0, new_len,
 					vma->vm_pgoff +
 					((addr - vma->vm_start) >> PAGE_SHIFT),
 					map_flags);

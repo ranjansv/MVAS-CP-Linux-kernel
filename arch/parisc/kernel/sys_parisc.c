@@ -84,10 +84,10 @@ static unsigned long mmap_upper_limit(void)
 }
 
 
-unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags)
+unsigned long arch_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long task_size = TASK_SIZE;
 	int do_color_align, last_mmap;
@@ -127,7 +127,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	info.high_limit = mmap_upper_limit();
 	info.align_mask = last_mmap ? (PAGE_MASK & (SHM_COLOUR - 1)) : 0;
 	info.align_offset = shared_align_offset(last_mmap, pgoff);
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 
 found_addr:
 	if (do_color_align && !last_mmap && !(addr & ~PAGE_MASK))
@@ -137,12 +137,11 @@ found_addr:
 }
 
 unsigned long
-arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
-			  const unsigned long len, const unsigned long pgoff,
-			  const unsigned long flags)
+arch_get_unmapped_area_topdown(struct mm_struct *mm, struct file *filp,
+			  const unsigned long addr0, const unsigned long len,
+			  const unsigned long pgoff, const unsigned long flags)
 {
 	struct vm_area_struct *vma;
-	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;
 	int do_color_align, last_mmap;
 	struct vm_unmapped_area_info info;
@@ -187,7 +186,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	info.high_limit = mm->mmap_base;
 	info.align_mask = last_mmap ? (PAGE_MASK & (SHM_COLOUR - 1)) : 0;
 	info.align_offset = shared_align_offset(last_mmap, pgoff);
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 	if (!(addr & ~PAGE_MASK))
 		goto found_addr;
 	VM_BUG_ON(addr != -ENOMEM);
@@ -198,7 +197,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
-	return arch_get_unmapped_area(filp, addr0, len, pgoff, flags);
+	return arch_get_unmapped_area(mm, filp, addr0, len, pgoff, flags);
 
 found_addr:
 	if (do_color_align && !last_mmap && !(addr & ~PAGE_MASK))

@@ -8,9 +8,9 @@
 void radix__flush_hugetlb_page(struct vm_area_struct *vma, unsigned long vmaddr);
 void radix__local_flush_hugetlb_page(struct vm_area_struct *vma, unsigned long vmaddr);
 extern unsigned long
-radix__hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
-				unsigned long len, unsigned long pgoff,
-				unsigned long flags);
+radix__hugetlb_get_unmapped_area(struct mm_struct *mm, struct file *file,
+				unsigned long addr, unsigned long len,
+				unsigned long pgoff, unsigned long flags);
 
 static inline int hstate_get_psize(struct hstate *hstate)
 {

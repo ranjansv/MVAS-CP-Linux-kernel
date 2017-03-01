@@ -21,12 +21,12 @@
 #include <linux/uaccess.h>
 
 unsigned long
-arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len,
+arch_get_unmapped_area (struct mm_struct *mm, struct file *filp,
+			unsigned long addr, unsigned long len,
 			unsigned long pgoff, unsigned long flags)
 {
 	long map_shared = (flags & MAP_SHARED);
 	unsigned long align_mask = 0;
-	struct mm_struct *mm = current->mm;
 	struct vm_unmapped_area_info info;
 
 	if (len > RGN_MAP_LIMIT)
@@ -61,7 +61,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 	info.high_limit = TASK_SIZE;
 	info.align_mask = align_mask;
 	info.align_offset = 0;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }
 
 asmlinkage long

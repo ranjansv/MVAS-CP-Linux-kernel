@@ -698,17 +698,18 @@ int gup_huge_pd(hugepd_t hugepd, unsigned long addr, unsigned pdshift,
 }
 
 #ifdef CONFIG_PPC_MM_SLICES
-unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
-					unsigned long len, unsigned long pgoff,
+unsigned long hugetlb_get_unmapped_area(struct mm_struct *mm, struct file *file,
+					unsigned long addr, unsigned long len,
+					unsigned long pgoff,
 					unsigned long flags)
 {
 	struct hstate *hstate = hstate_file(file);
 	int mmu_psize = shift_to_mmu_psize(huge_page_shift(hstate));
 
 	if (radix_enabled())
-		return radix__hugetlb_get_unmapped_area(file, addr, len,
+		return radix__hugetlb_get_unmapped_area(mm, file, addr, len,
 						       pgoff, flags);
-	return slice_get_unmapped_area(addr, len, flags, mmu_psize, 1);
+	return slice_get_unmapped_area(mm, addr, len, flags, mmu_psize, 1);
 }
 #endif
 

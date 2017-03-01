@@ -115,7 +115,8 @@ struct slice_mask {
 
 struct mm_struct;
 
-extern unsigned long slice_get_unmapped_area(unsigned long addr,
+extern unsigned long slice_get_unmapped_area(struct mm_struct *mm,
+					     unsigned long addr,
 					     unsigned long len,
 					     unsigned long flags,
 					     unsigned int psize,

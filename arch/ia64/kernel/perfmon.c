@@ -2308,7 +2308,8 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
 	down_write(&task->mm->mmap_sem);
 
 	/* find some free area in address space, must have mmap sem held */
-	vma->vm_start = get_unmapped_area(NULL, 0, size, 0, MAP_PRIVATE|MAP_ANONYMOUS);
+	vma->vm_start = get_unmapped_area(mm, NULL, 0, size, 0,
+					  MAP_PRIVATE|MAP_ANONYMOUS);
 	if (IS_ERR_VALUE(vma->vm_start)) {
 		DPRINT(("Cannot find unmapped area for size %ld\n", size));
 		up_write(&task->mm->mmap_sem);

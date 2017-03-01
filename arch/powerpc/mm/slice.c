@@ -296,7 +296,7 @@ static unsigned long slice_find_area_bottomup(struct mm_struct *mm,
 		}
 		info.high_limit = addr;
 
-		found = vm_unmapped_area(&info);
+		found = vm_unmapped_area(mm, &info);
 		if (!(found & ~PAGE_MASK))
 			return found;
 	}
@@ -339,7 +339,7 @@ static unsigned long slice_find_area_topdown(struct mm_struct *mm,
 		}
 		info.low_limit = addr;
 
-		found = vm_unmapped_area(&info);
+		found = vm_unmapped_area(mm, &info);
 		if (!(found & ~PAGE_MASK))
 			return found;
 	}
@@ -380,9 +380,9 @@ static unsigned long slice_find_area(struct mm_struct *mm, unsigned long len,
 #define MMU_PAGE_BASE	MMU_PAGE_4K
 #endif
 
-unsigned long slice_get_unmapped_area(unsigned long addr, unsigned long len,
-				      unsigned long flags, unsigned int psize,
-				      int topdown)
+unsigned long slice_get_unmapped_area(struct mm_struct *mm, unsigned long addr,
+				      unsigned long len, unsigned long flags,
+				      unsigned int psize, int topdown)
 {
 	struct slice_mask mask = {0, 0};
 	struct slice_mask good_mask;
@@ -390,7 +390,6 @@ unsigned long slice_get_unmapped_area(unsigned long addr, unsigned long len,
 	struct slice_mask compat_mask = {0, 0};
 	int fixed = (flags & MAP_FIXED);
 	int pshift = max_t(int, mmu_psize_defs[psize].shift, PAGE_SHIFT);
-	struct mm_struct *mm = current->mm;
 	unsigned long newaddr;
 
 	/* Sanity checks */
@@ -544,24 +543,26 @@ unsigned long slice_get_unmapped_area(unsigned long addr, unsigned long len,
 }
 EXPORT_SYMBOL_GPL(slice_get_unmapped_area);
 
-unsigned long arch_get_unmapped_area(struct file *filp,
+unsigned long arch_get_unmapped_area(struct mm_struct *mm,
+				     struct file *filp,
 				     unsigned long addr,
 				     unsigned long len,
 				     unsigned long pgoff,
 				     unsigned long flags)
 {
-	return slice_get_unmapped_area(addr, len, flags,
-				       current->mm->context.user_psize, 0);
+	return slice_get_unmapped_area(mm, addr, len, flags,
+				       mm->context.user_psize, 0);
 }
 
-unsigned long arch_get_unmapped_area_topdown(struct file *filp,
+unsigned long arch_get_unmapped_area_topdown(struct mm_struct *mm,
+					     struct file *filp,
 					     const unsigned long addr0,
 					     const unsigned long len,
 					     const unsigned long pgoff,
 					     const unsigned long flags)
 {
-	return slice_get_unmapped_area(addr0, len, flags,
-				       current->mm->context.user_psize, 1);
+	return slice_get_unmapped_area(mm, addr0, len, flags,
+				       mm->context.user_psize, 1);
 }
 
 unsigned int get_slice_psize(struct mm_struct *mm, unsigned long addr)

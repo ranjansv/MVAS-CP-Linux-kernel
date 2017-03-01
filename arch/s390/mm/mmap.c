@@ -81,10 +81,10 @@ static inline unsigned long mmap_base(unsigned long rnd)
 }
 
 unsigned long
-arch_get_unmapped_area(struct file *filp, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags)
+arch_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	struct vm_unmapped_area_info info;
 
@@ -111,16 +111,15 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	else
 		info.align_mask = 0;
 	info.align_offset = pgoff << PAGE_SHIFT;
-	return vm_unmapped_area(&info);
+	return vm_unmapped_area(mm, &info);
 }
 
 unsigned long
-arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
-			  const unsigned long len, const unsigned long pgoff,
-			  const unsigned long flags)
+arch_get_unmapped_area_topdown(struct mm_struct *mm, struct file *filp,
+			  const unsigned long addr0, const unsigned long len,
+			  const unsigned long pgoff, const unsigned long flags)
 {
 	struct vm_area_struct *vma;
-	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;
 	struct vm_unmapped_area_info info;
 
@@ -149,7 +148,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	else
 		info.align_mask = 0;
 	info.align_offset = pgoff << PAGE_SHIFT;
-	addr = vm_unmapped_area(&info);
+	addr = vm_unmapped_area(mm, &info);
 
 	/*
 	 * A failed mmap() very likely causes application failure,
@@ -162,7 +161,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		info.flags = 0;
 		info.low_limit = TASK_UNMAPPED_BASE;
 		info.high_limit = TASK_SIZE;
-		addr = vm_unmapped_area(&info);
+		addr = vm_unmapped_area(mm, &info);
 	}
 
 	return addr;
@@ -180,14 +179,14 @@ int s390_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
 }
 
 static unsigned long
-s390_get_unmapped_area(struct file *filp, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags)
+s390_get_unmapped_area(struct mm_struct *mm, struct file *filp,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	unsigned long area;
 	int rc;
 
-	area = arch_get_unmapped_area(filp, addr, len, pgoff, flags);
+	area = arch_get_unmapped_area(mm, filp, addr, len, pgoff, flags);
 	if (!(area & ~PAGE_MASK))
 		return area;
 	if (area == -ENOMEM && !is_compat_task() && TASK_SIZE < TASK_MAX_SIZE) {
@@ -195,21 +194,22 @@ s390_get_unmapped_area(struct file *filp, unsigned long addr,
 		rc = crst_table_upgrade(mm);
 		if (rc)
 			return (unsigned long) rc;
-		area = arch_get_unmapped_area(filp, addr, len, pgoff, flags);
+		area = arch_get_unmapped_area(mm, filp, addr, len, pgoff,
+					      flags);
 	}
 	return area;
 }
 
 static unsigned long
-s390_get_unmapped_area_topdown(struct file *filp, const unsigned long addr,
-			  const unsigned long len, const unsigned long pgoff,
-			  const unsigned long flags)
+s390_get_unmapped_area_topdown(struct mm_struct *mm, struct file *filp,
+			  const unsigned long addr, const unsigned long len,
+			  const unsigned long pgoff, const unsigned long flags)
 {
-	struct mm_struct *mm = current->mm;
 	unsigned long area;
 	int rc;
 
-	area = arch_get_unmapped_area_topdown(filp, addr, len, pgoff, flags);
+	area = arch_get_unmapped_area_topdown(mm, filp, addr, len, pgoff,
+					      flags);
 	if (!(area & ~PAGE_MASK))
 		return area;
 	if (area == -ENOMEM && !is_compat_task() && TASK_SIZE < TASK_MAX_SIZE) {
@@ -217,7 +217,7 @@ s390_get_unmapped_area_topdown(struct file *filp, const unsigned long addr,
 		rc = crst_table_upgrade(mm);
 		if (rc)
 			return (unsigned long) rc;
-		area = arch_get_unmapped_area_topdown(filp, addr, len,
+		area = arch_get_unmapped_area_topdown(mm, filp, addr, len,
 						      pgoff, flags);
 	}
 	return area;

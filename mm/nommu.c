@@ -1333,8 +1333,9 @@ unsigned long do_mmap(struct mm_struct *mm,
 		 *   tell us the location of a shared mapping
 		 */
 		if (capabilities & NOMMU_MAP_DIRECT) {
-			addr = file->f_op->get_unmapped_area(file, addr, len,
-							     pgoff, flags);
+			addr = file->f_op->get_unmapped_area(mm, file, addr,
+							     len, pgoff,
+							     flags);
 			if (IS_ERR_VALUE(addr)) {
 				ret = addr;
 				if (ret != -ENOSYS)
@@ -1782,8 +1783,9 @@ int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 }
 EXPORT_SYMBOL(remap_vmalloc_range);
 
-unsigned long arch_get_unmapped_area(struct file *file, unsigned long addr,
-	unsigned long len, unsigned long pgoff, unsigned long flags)
+unsigned long arch_get_unmapped_area(struct mm_struct *mm, struct file *file,
+	unsigned long addr, unsigned long len, unsigned long pgoff,
+	unsigned long flags)
 {
 	return -ENOMEM;
 }

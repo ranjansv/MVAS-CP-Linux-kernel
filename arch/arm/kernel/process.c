@@ -426,7 +426,7 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	if (down_write_killable(&mm->mmap_sem))
 		return -EINTR;
 	hint = sigpage_addr(mm, npages);
-	addr = get_unmapped_area(NULL, hint, npages << PAGE_SHIFT, 0, 0);
+	addr = get_unmapped_area(mm, NULL, hint, npages << PAGE_SHIFT, 0, 0);
 	if (IS_ERR_VALUE(addr)) {
 		ret = addr;
 		goto up_fail;

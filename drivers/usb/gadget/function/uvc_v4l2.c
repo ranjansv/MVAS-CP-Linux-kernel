@@ -343,7 +343,8 @@ uvc_v4l2_poll(struct file *file, poll_table *wait)
 }
 
 #ifndef CONFIG_MMU
-static unsigned long uvcg_v4l2_get_unmapped_area(struct file *file,
+static unsigned long uvcg_v4l2_get_unmapped_area(struct mm_struct *mm,
+		struct file *file,
 		unsigned long addr, unsigned long len, unsigned long pgoff,
 		unsigned long flags)
 {
