@@ -65,6 +65,7 @@ struct old_linux_dirent;
 struct perf_event_attr;
 struct file_handle;
 struct sigaltstack;
+struct vas_attr;
 union bpf_attr;
 
 #include <linux/types.h>
@@ -902,5 +903,15 @@ asmlinkage long sys_pkey_mprotect(unsigned long start, size_t len,
 				  unsigned long prot, int pkey);
 asmlinkage long sys_pkey_alloc(unsigned long flags, unsigned long init_val);
 asmlinkage long sys_pkey_free(int pkey);
+
+asmlinkage long sys_vas_create(const char __user *name, umode_t mode);
+asmlinkage long sys_vas_delete(int vid);
+asmlinkage long sys_vas_find(const char __user *name);
+asmlinkage long sys_vas_attach(pid_t pid, int vid, int type);
+asmlinkage long sys_vas_detach(pid_t pid, int vid);
+asmlinkage long sys_vas_switch(int vid);
+asmlinkage long sys_active_vas(void);
+asmlinkage long sys_vas_getattr(int vid, struct vas_attr __user *attr);
+asmlinkage long sys_vas_setattr(int vid, struct vas_attr __user *attr);
 
 #endif

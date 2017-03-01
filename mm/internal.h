@@ -499,4 +499,12 @@ extern const struct trace_print_flags pageflag_names[];
 extern const struct trace_print_flags vmaflag_names[];
 extern const struct trace_print_flags gfpflag_names[];
 
+#ifdef CONFIG_VAS
+void mm_updated(struct mm_struct *mm);
+void vm_area_updated(struct vm_area_struct *vma);
+#else
+static inline void mm_updated(struct mm_struct *mm) {}
+static inline void vm_area_updated(struct vm_area_struct *vma) {}
+#endif
+
 #endif	/* __MM_INTERNAL_H */

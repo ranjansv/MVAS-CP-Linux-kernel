@@ -4042,6 +4042,9 @@ int handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 				&& test_bit(MMF_UNSTABLE, &vma->vm_mm->flags)))
 		ret = VM_FAULT_SIGBUS;
 
+	if (ret)
+		vm_area_updated(vma);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(handle_mm_fault);

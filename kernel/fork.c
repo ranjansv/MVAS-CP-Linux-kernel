@@ -76,6 +76,8 @@
 #include <linux/compiler.h>
 #include <linux/sysctl.h>
 #include <linux/kcov.h>
+#include <linux/vas.h>
+#include <linux/timekeeping.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -784,6 +786,10 @@ struct mm_struct *mm_setup(struct mm_struct *mm)
 	if (mm_alloc_pgd(mm))
 		goto fail_nopgd;
 
+#ifdef CONFIG_VAS
+	mm->vas_last_update = ktime_get();
+#endif
+
 	return mm;
 
 fail_nopgd:
@@ -1217,6 +1223,9 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 
 	tsk->mm = NULL;
 	tsk->active_mm = NULL;
+#ifdef CONFIG_VAS
+	tsk->original_mm = NULL;
+#endif
 
 	/*
 	 * Are we cloning a kernel thread?
@@ -1226,6 +1235,15 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 	oldmm = current->mm;
 	if (!oldmm)
 		return 0;
+
+#ifdef CONFIG_VAS
+	/*
+	 * Never fork the address space of a VAS but use the process'
+	 * original one.
+	 */
+	if (oldmm != current->original_mm)
+		oldmm = current->original_mm;
+#endif
 
 	/* initialize the new vmacache entries */
 	vmacache_flush(tsk);
@@ -1244,6 +1262,9 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 good_mm:
 	tsk->mm = mm;
 	tsk->active_mm = mm;
+#ifdef CONFIG_VAS
+	tsk->original_mm = mm;
+#endif
 	return 0;
 
 fail_nomem:
@@ -1710,9 +1731,12 @@ static __latent_entropy struct task_struct *copy_process(
 	retval = copy_mm(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_signal;
-	retval = copy_namespaces(clone_flags, p);
+	retval = vas_clone(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_mm;
+	retval = copy_namespaces(clone_flags, p);
+	if (retval)
+		goto bad_fork_cleanup_vas;
 	retval = copy_io(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_namespaces;
@@ -1895,6 +1919,8 @@ bad_fork_cleanup_io:
 		exit_io_context(p);
 bad_fork_cleanup_namespaces:
 	exit_task_namespaces(p);
+bad_fork_cleanup_vas:
+	vas_exit(p);
 bad_fork_cleanup_mm:
 	if (p->mm)
 		mmput(p->mm);

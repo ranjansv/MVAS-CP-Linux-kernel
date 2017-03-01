@@ -258,3 +258,14 @@ cond_syscall(sys_membarrier);
 cond_syscall(sys_pkey_mprotect);
 cond_syscall(sys_pkey_alloc);
 cond_syscall(sys_pkey_free);
+
+/* first class virtual address spaces */
+cond_syscall(sys_vas_create);
+cond_syscall(sys_vas_delete);
+cond_syscall(sys_vas_find);
+cond_syscall(sys_vas_attach);
+cond_syscall(sys_vas_detach);
+cond_syscall(sys_vas_switch);
+cond_syscall(sys_active_vas);
+cond_syscall(sys_vas_getattr);
+cond_syscall(sys_vas_setattr);

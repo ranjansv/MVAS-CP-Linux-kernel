@@ -1,0 +1,46 @@
+What:		/sys/kernel/vas
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		Kernel interface for first class virtual address spaces.
+
+		The /sys/kernel/vas directory contains subdirectories for each
+		first class virtual address space that is currently known to the
+		kernel.
+
+What:		/sys/kernel/vas/<vas>
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		The directories for each first class virtual address space
+		contain various files that can be used to collect additional
+		information about it.
+
+What:		/sys/kernel/vas/<vas>/name
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the user-defined
+		name of the corresponding first class virtual address space.
+
+What:		/sys/kernel/vas/<vas>/mode
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the access
+		permissions of the corresponding first class virtual address
+		space.
+
+What:		/sys/kernel/vas/<vas>/user
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the owning user of
+		the corresponding first class virtual address space.
+
+What:		/sys/kernel/vas/<vas>/group
+Date:		Mar 2017
+Contact:	Till Smejkal <till.smejkal@gmail.com>
+Description:
+		A read-only attribute that can be used to get the owning group
+		of the corresponding first class virtual address space.

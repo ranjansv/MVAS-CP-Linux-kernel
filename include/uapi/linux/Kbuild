@@ -446,6 +446,7 @@ header-y += v4l2-controls.h
 header-y += v4l2-dv-timings.h
 header-y += v4l2-mediabus.h
 header-y += v4l2-subdev.h
+header-y += vas.h
 header-y += veth.h
 header-y += vfio.h
 header-y += vhost.h

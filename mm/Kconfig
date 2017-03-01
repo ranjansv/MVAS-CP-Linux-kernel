@@ -707,3 +707,23 @@ config ARCH_USES_HIGH_VMA_FLAGS
 	bool
 config ARCH_HAS_PKEYS
 	bool
+
+config VAS
+	bool "Support for First Class Virtual Address Spaces"
+	default n
+	help
+	  Support for First Class Virtual Address Spaces which are address space
+	  that are not bound to the lifetime of any process but can exist
+	  independently in the system. With this feature processes are allowed
+	  to have multiple different address spaces between which their threads
+	  can switch arbitrarily.
+
+	  If not sure, then say N.
+
+config VAS_DEBUG
+	bool "Debugging output for First Class Virtual Address Spaces"
+	depends on VAS
+	default n
+	help
+	  Enable extensive debugging output for the First Class Virtual Address
+	  Spaces feature.

@@ -730,9 +730,27 @@ __SYSCALL(__NR_pkey_mprotect, sys_pkey_mprotect)
 __SYSCALL(__NR_pkey_alloc,    sys_pkey_alloc)
 #define __NR_pkey_free 290
 __SYSCALL(__NR_pkey_free,     sys_pkey_free)
+#define __NR_vas_create 291
+__SYSCALL(__NR_vas_create, sys_vas_create)
+#define __NR_vas_delete 292
+__SYSCALL(__NR_vas_delete, sys_vas_delete)
+#define __NR_vas_find 293
+__SYSCALL(__NR_vas_find, sys_vas_find)
+#define __NR_vas_attach 294
+__SYSCALL(__NR_vas_attach, sys_vas_attach)
+#define __NR_vas_detach 295
+__SYSCALL(__NR_vas_detach, sys_vas_detach)
+#define __NR_vas_switch 296
+__SYSCALL(__NR_vas_switch, sys_vas_switch)
+#define __NR_active_vas 297
+__SYSCALL(__NR_active_vas, sys_active_vas)
+#define __NR_vas_getattr 298
+__SYSCALL(__NR_vas_getattr, sys_vas_getattr)
+#define __NR_vas_setattr 299
+__SYSCALL(__NR_vas_setattr, sys_vas_setattr)
 
 #undef __NR_syscalls
-#define __NR_syscalls 291
+#define __NR_syscalls 300
 
 /*
  * All syscalls below here should go away really,

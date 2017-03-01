@@ -44,6 +44,7 @@
 #include <linux/userfaultfd_k.h>
 #include <linux/moduleparam.h>
 #include <linux/pkeys.h>
+#include <linux/timekeeping.h>
 
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
@@ -942,6 +943,7 @@ again:
 		uprobe_mmap(insert);
 
 	validate_mm(mm);
+	vm_area_updated(vma);
 
 	return 0;
 }
@@ -1135,6 +1137,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 		if (err)
 			return NULL;
 		khugepaged_enter_vma_merge(prev, vm_flags);
+		vm_area_updated(prev);
 		return prev;
 	}
 
@@ -1162,6 +1165,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 		if (err)
 			return NULL;
 		khugepaged_enter_vma_merge(area, vm_flags);
+		vm_area_updated(area);
 		return area;
 	}
 
@@ -1719,6 +1723,7 @@ out:
 	vma->vm_flags |= VM_SOFTDIRTY;
 
 	vma_set_page_prot(vma);
+	vm_area_updated(vma);
 
 	return addr;
 
@@ -2263,6 +2268,7 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 	anon_vma_unlock_write(vma->anon_vma);
 	khugepaged_enter_vma_merge(vma, vma->vm_flags);
 	validate_mm(mm);
+	vm_area_updated(vma);
 	return error;
 }
 #endif /* CONFIG_STACK_GROWSUP || CONFIG_IA64 */
@@ -2332,6 +2338,7 @@ int expand_downwards(struct vm_area_struct *vma,
 	anon_vma_unlock_write(vma->anon_vma);
 	khugepaged_enter_vma_merge(vma, vma->vm_flags);
 	validate_mm(mm);
+	vm_area_updated(vma);
 	return error;
 }
 
@@ -2457,6 +2464,7 @@ void munmap_region(struct mm_struct *mm, struct vm_area_struct *vma,
 	free_pgtables(&tlb, vma, prev ? prev->vm_end : FIRST_USER_ADDRESS,
 				 next ? next->vm_start : USER_PGTABLES_CEILING);
 	tlb_finish_mmu(&tlb, start, end);
+	mm_updated(mm);
 }
 
 /*
@@ -2656,6 +2664,7 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 
 	/* Fix up all other VM information */
 	remove_vma_list(mm, vma);
+	mm_updated(mm);
 
 	return 0;
 }
@@ -2882,6 +2891,7 @@ out:
 	if (flags & VM_LOCKED)
 		mm->locked_vm += (len >> PAGE_SHIFT);
 	vma->vm_flags |= VM_SOFTDIRTY;
+	vm_area_updated(vma);
 	return 0;
 }
 
@@ -3058,6 +3068,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 		vma_link(mm, new_vma, prev, rb_link, rb_parent);
 		*need_rmap_locks = false;
 	}
+	vm_area_updated(new_vma);
 	return new_vma;
 
 out_free_mempol:
@@ -3204,6 +3215,7 @@ static struct vm_area_struct *__install_special_mapping(
 	vm_stat_account(mm, vma->vm_flags, len >> PAGE_SHIFT);
 
 	perf_event_mmap(vma);
+	vm_area_updated(vma);
 
 	return vma;
 
@@ -3550,3 +3562,13 @@ static int __meminit init_reserve_notifier(void)
 	return 0;
 }
 subsys_initcall(init_reserve_notifier);
+
+void mm_updated(struct mm_struct *mm)
+{
+	mm->vas_last_update = ktime_get();
+}
+
+void vm_area_updated(struct vm_area_struct *vma)
+{
+	vma->vas_last_update = vma->vm_mm->vas_last_update = ktime_get();
+}

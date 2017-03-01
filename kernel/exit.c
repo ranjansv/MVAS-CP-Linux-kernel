@@ -55,6 +55,7 @@
 #include <linux/shm.h>
 #include <linux/kcov.h>
 #include <linux/random.h>
+#include <linux/vas.h>
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -823,6 +824,7 @@ void __noreturn do_exit(long code)
 	tsk->exit_code = code;
 	taskstats_exit(tsk, group_dead);
 
+	vas_exit(tsk);
 	exit_mm(tsk);
 
 	if (group_dead)

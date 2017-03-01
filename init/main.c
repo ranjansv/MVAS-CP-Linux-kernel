@@ -82,6 +82,7 @@
 #include <linux/proc_ns.h>
 #include <linux/io.h>
 #include <linux/cache.h>
+#include <linux/vas.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -538,6 +539,7 @@ asmlinkage __visible void __init start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
+	vas_init();
 
 	/*
 	 * Set up the scheduler prior starting any interrupts (such as the

@@ -13,6 +13,7 @@
 #include <linux/uprobes.h>
 #include <linux/page-flags-layout.h>
 #include <linux/workqueue.h>
+#include <linux/ktime.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
 
@@ -358,6 +359,10 @@ struct vm_area_struct {
 	struct mempolicy *vm_policy;	/* NUMA policy for the VMA */
 #endif
 	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
+#ifdef CONFIG_VAS
+	struct mm_struct *vas_reference;
+	ktime_t vas_last_update;
+#endif
 };
 
 struct core_thread {
@@ -514,6 +519,9 @@ struct mm_struct {
 	atomic_long_t hugetlb_usage;
 #endif
 	struct work_struct async_put_work;
+#ifdef CONFIG_VAS
+	ktime_t vas_last_update;
+#endif
 };
 
 static inline void mm_init_cpumask(struct mm_struct *mm)

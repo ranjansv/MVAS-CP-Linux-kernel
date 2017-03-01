@@ -338,6 +338,15 @@
 329	common	pkey_mprotect		sys_pkey_mprotect
 330	common	pkey_alloc		sys_pkey_alloc
 331	common	pkey_free		sys_pkey_free
+332	common	vas_create		sys_vas_create
+333	common	vas_delete		sys_vas_delete
+334	common	vas_find		sys_vas_find
+335	common	vas_attach		sys_vas_attach
+336	common	vas_detach		sys_vas_detach
+337	common	vas_switch		sys_vas_switch
+338	common	active_vas		sys_active_vas
+339	common	vas_getattr		sys_vas_getattr
+340	common	vas_setattr		sys_vas_setattr
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact

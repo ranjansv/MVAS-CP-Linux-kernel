@@ -1508,6 +1508,18 @@ struct tlbflush_unmap_batch {
 	bool writable;
 };
 
+/* Shared information of attached VASes between processes */
+#ifdef CONFIG_VAS
+struct vas_context {
+	spinlock_t lock;
+	u16 refcount;			// < the number of tasks using this
+					//   VAS context.
+
+	struct list_head vases;		// < the list of attached-VASes which
+					//   are handled by this VAS context.
+};
+#endif
+
 struct task_struct {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 	/*
@@ -1583,6 +1595,11 @@ struct task_struct {
 #endif
 
 	struct mm_struct *mm, *active_mm;
+#ifdef CONFIG_VAS
+	struct mm_struct *original_mm;
+	struct vas_context *vas_ctx;
+	int active_vas;
+#endif
 	/* per-thread vma caching */
 	u32 vmacache_seqnum;
 	struct vm_area_struct *vmacache[VMACACHE_SIZE];

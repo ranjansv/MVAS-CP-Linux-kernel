@@ -5040,6 +5040,17 @@ F:	Documentation/firmware_class/
 F:	drivers/base/firmware*.c
 F:	include/linux/firmware.h
 
+FIRST CLASS VIRTUAL ADDRESS SPACES
+M:	Till Smejkal <till.smejkal@gmail.com>
+L:	linux-kernel@vger.kernel.org
+L:	linux-mm@kvack.org
+S:	Maintained
+F:	include/linux/vas_types.h
+F:	include/linux/vas.h
+F:	include/uapi/linux/vas.h
+F:	mm/vas.c
+F:	Documentation/ABI/testing/sysfs-kernel-vas
+
 FLASH ADAPTER DRIVER (IBM Flash Adapter 900GB Full Height PCI Flash Card)
 M:	Joshua Morris <josh.h.morris@us.ibm.com>
 M:	Philip Kelleher <pjk1939@linux.vnet.ibm.com>
