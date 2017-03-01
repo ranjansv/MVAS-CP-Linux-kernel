@@ -2040,15 +2040,18 @@ do_mmap_pgoff(struct mm_struct *mm, struct file *file, unsigned long addr,
 }
 
 #ifdef CONFIG_MMU
-extern int __mm_populate(unsigned long addr, unsigned long len,
-			 int ignore_errors);
-static inline void mm_populate(unsigned long addr, unsigned long len)
+extern int __mm_populate(struct mm_struct *mm, unsigned long addr,
+			 unsigned long len, int ignore_errors);
+static inline void mm_populate(struct mm_struct *mm, unsigned long addr,
+			       unsigned long len)
 {
 	/* Ignore errors */
-	(void) __mm_populate(addr, len, 1);
+	(void) __mm_populate(mm, addr, len, 1);
 }
 #else
-static inline void mm_populate(unsigned long addr, unsigned long len) {}
+static inline void mm_populate(struct mm_struct *mm, unsigned long addr,
+			       unsigned long len)
+{}
 #endif
 
 /* These take the mm semaphore themselves */

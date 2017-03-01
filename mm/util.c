@@ -306,7 +306,7 @@ unsigned long vm_mmap_pgoff(struct file *file, unsigned long addr,
 				    &populate);
 		up_write(&mm->mmap_sem);
 		if (populate)
-			mm_populate(ret, populate);
+			mm_populate(mm, ret, populate);
 	}
 	return ret;
 }

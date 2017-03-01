@@ -602,6 +602,6 @@ out:
 	}
 	up_write(&current->mm->mmap_sem);
 	if (locked && new_len > old_len)
-		mm_populate(new_addr + old_len, new_len - old_len);
+		mm_populate(mm, new_addr + old_len, new_len - old_len);
 	return ret;
 }

@@ -1106,6 +1106,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 	struct shm_file_data *sfd;
 	struct path path;
 	fmode_t f_mode;
+	struct mm_struct *mm = current->mm;
 	unsigned long populate = 0;
 
 	err = -EINVAL;
@@ -1208,7 +1209,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 	if (err)
 		goto out_fput;
 
-	if (down_write_killable(&current->mm->mmap_sem)) {
+	if (down_write_killable(&mm->mmap_sem)) {
 		err = -EINTR;
 		goto out_fput;
 	}
@@ -1218,7 +1219,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 		if (addr + size < addr)
 			goto invalid;
 
-		if (find_vma_intersection(current->mm, addr, addr + size))
+		if (find_vma_intersection(mm, addr, addr + size))
 			goto invalid;
 	}
 
@@ -1229,9 +1230,9 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 	if (IS_ERR_VALUE(addr))
 		err = (long)addr;
 invalid:
-	up_write(&current->mm->mmap_sem);
+	up_write(&mm->mmap_sem);
 	if (populate)
-		mm_populate(addr, populate);
+		mm_populate(mm, addr, populate);
 
 out_fput:
 	fput(file);

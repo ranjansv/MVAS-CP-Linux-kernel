@@ -1053,9 +1053,9 @@ long populate_vma_page_range(struct vm_area_struct *vma,
  * flags. VMAs must be already marked with the desired vm_flags, and
  * mmap_sem must not be held.
  */
-int __mm_populate(unsigned long start, unsigned long len, int ignore_errors)
+int __mm_populate(struct mm_struct *mm, unsigned long start, unsigned long len,
+		  int ignore_errors)
 {
-	struct mm_struct *mm = current->mm;
 	unsigned long end, nstart, nend;
 	struct vm_area_struct *vma = NULL;
 	int locked = 0;
