@@ -50,8 +50,8 @@ static unsigned long mpx_mmap(unsigned long len)
 		return -EINVAL;
 
 	down_write(&mm->mmap_sem);
-	addr = do_mmap(NULL, 0, len, PROT_READ | PROT_WRITE,
-			MAP_ANONYMOUS | MAP_PRIVATE, VM_MPX, 0, &populate);
+	addr = do_mmap(mm, NULL, 0, len, PROT_READ | PROT_WRITE,
+		       MAP_ANONYMOUS | MAP_PRIVATE, VM_MPX, 0, &populate);
 	up_write(&mm->mmap_sem);
 	if (populate)
 		mm_populate(addr, populate);

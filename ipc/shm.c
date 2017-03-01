@@ -1222,7 +1222,8 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 			goto invalid;
 	}
 
-	addr = do_mmap_pgoff(file, addr, size, prot, flags, 0, &populate);
+	addr = do_mmap_pgoff(mm, file, addr, size, prot, flags, 0,
+			     &populate);
 	*raddr = addr;
 	err = 0;
 	if (IS_ERR_VALUE(addr))

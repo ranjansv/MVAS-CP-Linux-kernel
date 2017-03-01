@@ -510,8 +510,8 @@ static int aio_setup_ring(struct kioctx *ctx)
 		return -EINTR;
 	}
 
-	ctx->mmap_base = do_mmap_pgoff(ctx->aio_ring_file, 0, ctx->mmap_size,
-				       PROT_READ | PROT_WRITE,
+	ctx->mmap_base = do_mmap_pgoff(current->mm, ctx->aio_ring_file, 0,
+				       ctx->mmap_size, PROT_READ | PROT_WRITE,
 				       MAP_SHARED, 0, &unused);
 	up_write(&mm->mmap_sem);
 	if (IS_ERR((void *)ctx->mmap_base)) {
