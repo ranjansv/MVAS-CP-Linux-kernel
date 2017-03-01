@@ -2023,6 +2023,10 @@ extern unsigned long do_mmap(struct mm_struct *mm, struct file *file,
 	unsigned long addr, unsigned long len, unsigned long prot,
 	unsigned long flags, vm_flags_t vm_flags, unsigned long pgoff,
 	unsigned long *populate);
+
+extern void munmap_region(struct mm_struct *mm, struct vm_area_struct *vma,
+			  struct vm_area_struct *prev, unsigned long start,
+			  unsigned long end);
 extern int do_munmap(struct mm_struct *, unsigned long, size_t);
 
 static inline unsigned long
