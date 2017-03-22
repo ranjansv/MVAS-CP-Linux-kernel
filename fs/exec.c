@@ -992,14 +992,12 @@ ssize_t read_code(struct file *file, unsigned long addr, loff_t pos, size_t len)
 }
 EXPORT_SYMBOL(read_code);
 
-static int exec_mmap(struct mm_struct *mm)
+int exec_mmap(struct task_struct *tsk, struct mm_struct *mm)
 {
-	struct task_struct *tsk;
 	struct mm_struct *old_mm, *active_mm;
 
 	/* Notify parent that we're no longer interested in the old VM */
-	tsk = current;
-	old_mm = current->mm;
+	old_mm = tsk->mm;
 	mm_release(tsk, old_mm);
 
 	if (old_mm) {
@@ -1259,7 +1257,7 @@ int flush_old_exec(struct linux_binprm * bprm)
 	 * Release all of the old mmap stuff
 	 */
 	acct_arg_size(bprm, 0);
-	retval = exec_mmap(bprm->mm);
+	retval = exec_mmap(current, bprm->mm);
 	if (retval)
 		goto out;
 

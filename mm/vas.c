@@ -2250,6 +2250,8 @@ int vas_create(const char *name, umode_t mode)
 	INIT_LIST_HEAD(&vas->segments);
 	vas->nr_segments = 0;
 
+	vas->execable = false;
+
 	vas->mode = mode & 0666;
 	vas->uid = current_uid();
 	vas->gid = current_gid();
@@ -2420,6 +2422,9 @@ int vas_attach(struct task_struct *tsk, int vid, int type)
 
 	vas = vas_get(vid);
 	if (!vas)
+		return -EINVAL;
+
+	if (vas->execable)
 		return -EINVAL;
 
 	pr_vas_debug("Attaching VAS - name: %s - to task - pid: %d - %s\n",
@@ -3729,4 +3734,124 @@ SYSCALL_DEFINE2(vas_seg_setattr, int, sid, struct vas_seg_attr __user *, uattr)
 		return -EFAULT;
 
 	return vas_seg_setattr(sid, &attr);
+}
+
+SYSCALL_DEFINE1(vas_fork, pid_t, pid)
+{
+	struct task_struct *tsk;
+	struct mm_struct *tsk_mm;
+	struct vas *vas;
+	char *vas_name;
+	int vid;
+	int ret;
+
+	tsk = pid == 0 ? current : find_task_by_vpid(pid);
+	if (!tsk)
+		return -ESRCH;
+
+	tsk_mm = get_task_mm(tsk);
+	if (!tsk_mm)
+		return -EFAULT;
+
+	vid = -ENOMEM;
+	vas_name = kmalloc(VAS_MAX_NAME_LENGTH, GFP_TEMPORARY);
+	if (!vas_name)
+		goto out_put_mm;
+
+	snprintf(vas_name, VAS_MAX_NAME_LENGTH, "CP-%d-%llu",
+		 task_pid_nr(tsk), get_jiffies_64());
+
+	vid = vas_create(vas_name, 0600);
+	if (vid < 0)
+		goto out_free_name;
+
+	pr_vas_debug("Save task - pid: %d - checkpoint in VAS - vid: %d\n",
+		     task_pid_nr(tsk), vid);
+
+	vas = vas_get(vid);
+	vas_lock(vas);
+
+	/* Finalize the VAS setup */
+	vas->execable = true;
+
+	rcu_read_lock();
+	vas->uid = __task_cred(tsk)->uid;
+	vas->gid = __task_cred(tsk)->gid;
+	rcu_read_unlock();
+
+	/* Duplicate the task's memory map into the VAS */
+	ret = dup_mmap(vas->mm, tsk_mm);
+	if (ret != 0) {
+		goto out_free_vas;
+	}
+
+	dump_memory_map("CP-VAS Memory Map", vas->mm);
+
+	vas_unlock(vas);
+	vas_put(vas);
+
+out_free_name:
+	kfree(vas_name);
+
+out_put_mm:
+	mmput(tsk_mm);
+
+	return vid;
+
+out_free_vas:
+	vas_unlock(vas);
+	vas_put(vas);
+	vas_delete(vid);
+
+	vid = ret;
+	goto out_free_name;
+}
+
+SYSCALL_DEFINE2(vas_exec, pid_t, pid, int, vid)
+{
+	struct task_struct *tsk;
+	struct mm_struct *new_mm;
+	struct vas *vas;
+	int ret;
+
+	tsk = pid == 0 ? current : find_task_by_vpid(pid);
+	if (!tsk)
+		return -ESRCH;
+
+	vas = vas_get(vid);
+	if (!vas)
+		return -EINVAL;
+
+	vas_lock(vas);
+
+	/* The user needs write permission to the restore the VAS-CP. */
+	ret = check_permission(vas->uid, vas->gid, vas->mode, MAY_WRITE);
+	if (ret != 0) {
+		pr_vas_debug("User doesn't have the appropriate permissions to restore from the VAS-CP\n");
+		goto out_unlock;
+	}
+
+	ret = -EINVAL;
+	if (!vas->execable)
+		goto out_unlock;
+
+	pr_vas_debug("Restore task - pid: %d - from checkpoint in VAS - vid %d\n",
+		     task_pid_nr(tsk), vid);
+	dump_memory_map("CP-VAS Memory Map", vas->mm);
+
+	ret = -ENOMEM;
+	new_mm = dup_mm(tsk, vas->mm);
+	if (!new_mm)
+		goto out_unlock;
+
+	/* @exec_mmap will drop the reference to the old mm */
+	ret = exec_mmap(tsk, new_mm);
+	if (ret != 0)
+		mmput(new_mm);
+
+out_unlock:
+	vas_unlock(vas);
+	vas_put(vas);
+
+	return ret;
 }

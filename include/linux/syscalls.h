@@ -923,5 +923,7 @@ asmlinkage long sys_vas_seg_attach(int vid, int sid, int type);
 asmlinkage long sys_vas_seg_detach(int vid, int sid);
 asmlinkage long sys_vas_seg_getattr(int sid, struct vas_seg_attr __user *attr);
 asmlinkage long sys_vas_seg_setattr(int sid, struct vas_seg_attr __user *attr);
+asmlinkage long sys_vas_fork(pid_t pid);
+asmlinkage long sys_vas_exec(pid_t pid, int vid);
 
 #endif

@@ -762,9 +762,13 @@ __SYSCALL(__NR_vas_seg_detach, sys_vas_seg_detach)
 __SYSCALL(__NR_vas_seg_getattr, sys_vas_seg_getattr)
 #define __NR_vas_seg_setattr 306
 __SYSCALL(__NR_vas_seg_setattr, sys_vas_seg_setattr)
+#define __NR_vas_fork 307
+__SYSCALL(__NR_vas_fork, sys_vas_fork)
+#define __NR_vas_exec 308
+__SYSCALL(__NR_vas_exec, sys_vas_exec)
 
 #undef __NR_syscalls
-#define __NR_syscalls 307
+#define __NR_syscalls 309
 
 /*
  * All syscalls below here should go away really,

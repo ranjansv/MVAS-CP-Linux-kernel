@@ -65,6 +65,8 @@ struct vas {
 	struct list_head segments;
 	u32 nr_segments;
 
+	bool execable;
+
 	umode_t mode;
 	kuid_t uid;
 	kgid_t gid;

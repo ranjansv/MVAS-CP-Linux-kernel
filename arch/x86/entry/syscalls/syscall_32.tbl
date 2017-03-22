@@ -405,3 +405,5 @@
 396	i386	vas_seg_detach		sys_vas_seg_detach
 397	i386	vas_seg_getattr		sys_vas_seg_getattr
 398	i386	vas_seg_setattr		sys_vas_seg_setattr
+399	i386	vas_fork		sys_vas_fork
+400	i386	vas_exec		sys_vas_exec

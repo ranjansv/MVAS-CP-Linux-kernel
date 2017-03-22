@@ -276,3 +276,5 @@ cond_syscall(sys_segment_attach);
 cond_syscall(sys_segment_detach);
 cond_syscall(sys_segment_getattr);
 cond_syscall(sys_segment_setattr);
+cond_syscall(sys_vas_fork);
+cond_syscall(sys_vas_exec);

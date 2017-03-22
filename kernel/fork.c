@@ -554,8 +554,7 @@ free_tsk:
 }
 
 #ifdef CONFIG_MMU
-static __latent_entropy int dup_mmap(struct mm_struct *mm,
-					struct mm_struct *oldmm)
+__latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 {
 	struct vm_area_struct *mpnt, *tmp, *prev, **pprev;
 	struct rb_node **rb_link, *rb_parent;
@@ -704,7 +703,7 @@ static inline void mm_free_pgd(struct mm_struct *mm)
 	pgd_free(mm, mm->pgd);
 }
 #else
-static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
+int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 {
 	down_write(&oldmm->mmap_sem);
 	RCU_INIT_POINTER(mm->exe_file, get_mm_exe_file(oldmm));
@@ -1174,8 +1173,7 @@ void mm_release(struct task_struct *tsk, struct mm_struct *mm)
  * Allocate a new mm structure and copy contents from the
  * mm structure of the passed in task structure.
  */
-static struct mm_struct *dup_mm(struct task_struct *tsk,
-				struct mm_struct *oldmm)
+struct mm_struct *dup_mm(struct task_struct *tsk, struct mm_struct *oldmm)
 {
 	struct mm_struct *mm;
 	int err;

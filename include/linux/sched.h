@@ -3039,6 +3039,10 @@ extern long do_fork(unsigned long, unsigned long, unsigned long, int __user *, i
 struct task_struct *fork_idle(int);
 extern pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
 
+extern int exec_mmap(struct task_struct *tsk, struct mm_struct *mm);
+extern struct mm_struct *dup_mm(struct task_struct *tsk, struct mm_struct *old);
+extern int dup_mmap(struct mm_struct *newmm, struct mm_struct *oldmm);
+
 extern void __set_task_comm(struct task_struct *tsk, const char *from, bool exec);
 static inline void set_task_comm(struct task_struct *tsk, const char *from)
 {
