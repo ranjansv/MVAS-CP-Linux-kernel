@@ -1387,6 +1387,7 @@ out:
 	return dst_vma;
 }
 
+
 /**
  * vas_merge() - Merge VAS related parts into an attached-VAS memory map.
  * @avas: The pointer to the attached-VAS data structure that contains all the
@@ -1415,6 +1416,12 @@ static int vas_merge(struct att_vas *avas, struct vas *vas, int type)
 	/* Try to copy all VMAs of the VAS into the AS of the attached-VAS. */
 	for (vma = vas_mm->mmap; vma; vma = vma->vm_next) {
 		unsigned long merged_vm_flags = vma->vm_flags;
+                if (vma_is_special_mapping(vma, vma->vm_private_data)) { 
+		    pr_vas_debug("Skipping vma merge of (%#lx - %#lx)\n",
+		                 vma->vm_start, vma->vm_end);
+		    continue;
+		}
+
 
 		pr_vas_debug("Merging a VAS memory region (%#lx - %#lx)\n",
 			     vma->vm_start, vma->vm_end);
@@ -2424,8 +2431,8 @@ int vas_attach(struct task_struct *tsk, int vid, int type)
 	if (!vas)
 		return -EINVAL;
 
-	if (vas->execable)
-		return -EINVAL;
+//	if (vas->execable)
+//		return -EINVAL;
 
 	pr_vas_debug("Attaching VAS - name: %s - to task - pid: %d - %s\n",
 		     vas->name, tsk->pid, access_type_str(type));
@@ -3761,7 +3768,7 @@ SYSCALL_DEFINE1(vas_fork, pid_t, pid)
 	snprintf(vas_name, VAS_MAX_NAME_LENGTH, "CP-%d-%llu",
 		 task_pid_nr(tsk), get_jiffies_64());
 
-	vid = vas_create(vas_name, 0600);
+	vid = vas_create(vas_name, 0700);
 	if (vid < 0)
 		goto out_free_name;
 
@@ -3772,7 +3779,7 @@ SYSCALL_DEFINE1(vas_fork, pid_t, pid)
 	vas_lock(vas);
 
 	/* Finalize the VAS setup */
-	vas->execable = true;
+//	vas->execable = true;
 
 	rcu_read_lock();
 	vas->uid = __task_cred(tsk)->uid;

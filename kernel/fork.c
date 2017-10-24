@@ -1239,8 +1239,8 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 	 * Never fork the address space of a VAS but use the process'
 	 * original one.
 	 */
-	if (oldmm != current->original_mm)
-		oldmm = current->original_mm;
+//	if (oldmm != current->original_mm)
+//		oldmm = current->original_mm;
 #endif
 
 	/* initialize the new vmacache entries */
