@@ -3748,6 +3748,7 @@ SYSCALL_DEFINE1(vas_fork, pid_t, pid)
 	struct task_struct *tsk;
 	struct mm_struct *tsk_mm;
 	struct vas *vas;
+	struct vm_area_struct *vma;
 	char *vas_name;
 	int vid;
 	int ret;
@@ -3779,7 +3780,7 @@ SYSCALL_DEFINE1(vas_fork, pid_t, pid)
 	vas_lock(vas);
 
 	/* Finalize the VAS setup */
-//	vas->execable = true;
+	vas->execable = true;
 
 	rcu_read_lock();
 	vas->uid = __task_cred(tsk)->uid;
@@ -3791,6 +3792,28 @@ SYSCALL_DEFINE1(vas_fork, pid_t, pid)
 	if (ret != 0) {
 		goto out_free_vas;
 	}
+
+        /* Remove VDSO and VVAR*/
+	down_write(&vas->mm->mmap_sem);
+	for (vma = vas->mm->mmap; vma; vma = vma->vm_next) {
+
+	    if (vma_is_special_mapping(vma, vma->vm_private_data)) {
+	        remove_vm_area(vas->mm, vma);
+		break;
+	    }
+
+	}
+	up_write(&vas->mm->mmap_sem);
+	down_write(&vas->mm->mmap_sem);
+	for (vma = vas->mm->mmap; vma; vma = vma->vm_next) {
+
+	    if (vma_is_special_mapping(vma, vma->vm_private_data)) {
+	        remove_vm_area(vas->mm, vma);
+		break;
+	    }
+
+	}
+	up_write(&vas->mm->mmap_sem);
 
 	dump_memory_map("CP-VAS Memory Map", vas->mm);
 
@@ -3818,6 +3841,8 @@ SYSCALL_DEFINE2(vas_exec, pid_t, pid, int, vid)
 {
 	struct task_struct *tsk;
 	struct mm_struct *new_mm;
+	struct mm_struct *tsk_mm;
+	struct vm_area_struct *vma, *new_vma;
 	struct vas *vas;
 	int ret;
 
@@ -3850,6 +3875,36 @@ SYSCALL_DEFINE2(vas_exec, pid_t, pid, int, vid)
 	new_mm = dup_mm(tsk, vas->mm);
 	if (!new_mm)
 		goto out_unlock;
+
+        tsk_mm = tsk->original_mm;
+
+        for (vma = tsk_mm->mmap; vma; vma = vma->vm_next) {
+
+                /*
+                 * The code region of the task will *always* be copied eagerly.
+                 * We need this region in any case to continue execution. All
+                 * the other memory regions are copied according to the
+                 * 'default_copy_eagerly' variable.
+                 */
+                pr_vas_debug("Merging a task memory region (%#lx - %#lx) %s\n",
+                             vma->vm_start, vma->vm_end,
+                              "eagerly");
+
+                new_vma = copy_vm_area(tsk_mm, vma, new_mm, vma->vm_flags,
+                                       true);
+                if (!new_vma) {
+                        pr_vas_debug("Failed to merge a task memory region (%#lx - %#lx)\n",
+                                     vma->vm_start, vma->vm_end);
+                        ret = -EFAULT;
+                        goto out_unlock;
+                }
+
+                /*
+                 * Remember for the VMA that we just added it to the
+                 * attached-VAS that it actually belongs to the task.
+                 */
+                new_vma->vas_reference = NULL;
+        }
 
 	/* @exec_mmap will drop the reference to the old mm */
 	ret = exec_mmap(tsk, new_mm);
